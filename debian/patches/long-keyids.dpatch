@@ -1,0 +1,48 @@
+#! /bin/sh /usr/share/dpatch/dpatch-run
+# Description: Use the longest key ID available when requesting a key from
+#  a key server
+# Origin: upstream, http://git.gnupg.org/cgi-bin/gitweb.cgi?p=gnupg.git;a=commit;h=6fe25e5602fabe92c68e5ba30e4777221e8612df
+# Bug: https://bugs.g10code.com/gnupg/issue1340
+
+@DPATCH@
+diff -urNad '--exclude=CVS' '--exclude=.svn' '--exclude=.git' '--exclude=.arch' '--exclude=.hg' '--exclude=_darcs' '--exclude=.bzr' gnupg-1.4.11~/keyserver/gpgkeys_hkp.c gnupg-1.4.11/keyserver/gpgkeys_hkp.c
+--- gnupg-1.4.11~/keyserver/gpgkeys_hkp.c	2009-08-25 14:41:27.000000000 -0400
++++ gnupg-1.4.11/keyserver/gpgkeys_hkp.c	2012-08-14 08:34:08.701024646 -0400
+@@ -234,9 +234,10 @@
+ get_key(char *getkey)
+ {
+   CURLcode res;
+-  char request[MAX_URL+60];
++  char request[MAX_URL+92];
+   char *offset;
+   struct curl_writer_ctx ctx;
++  size_t keylen;
+ 
+   memset(&ctx,0,sizeof(ctx));
+ 
+@@ -262,14 +263,19 @@
+   strcat(request,port);
+   strcat(request,opt->path);
+   /* request is MAX_URL+55 bytes long - MAX_URL covers the whole URL,
+-     including any supplied path.  The 60 overcovers this /pks/... etc
+-     string plus the 8 bytes of key id */
++     including any supplied path.  The 92 overcovers this /pks/... etc
++     string plus the 8, 16, or 40 bytes of key id/fingerprint */
+   append_path(request,"/pks/lookup?op=get&options=mr&search=0x");
+ 
+-  /* fingerprint or long key id.  Take the last 8 characters and treat
+-     it like a short key id */
+-  if(strlen(getkey)>8)
+-    offset=&getkey[strlen(getkey)-8];
++  /* send only fingerprint, long key id, or short keyid.  see:
++     https://tools.ietf.org/html/draft-shaw-openpgp-hkp-00#section-3.1.1.1 */
++  keylen = strlen(getkey);
++  if(keylen >= 40)
++    offset=&getkey[keylen-40];
++  else if(keylen >= 16)
++    offset=&getkey[keylen-16];
++  else if(keylen >= 8)
++    offset=&getkey[keylen-8];
+   else
+     offset=getkey;
+ 

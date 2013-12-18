@@ -1,0 +1,9 @@
+mips_gcc4.4
+disable_mlock_test
+use_agent_default
+long-keyids
+CVE-2012-6085
+CVE-2013-4242
+CVE-2013-4351
+CVE-2013-4402
+CVE-2013-4576
