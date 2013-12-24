@@ -1,3 +1,9 @@
+gnupg (1.4.11-3ubuntu2.5pexip1) pexip; urgency=low
+
+  * Prepare Pexip packaging
+
+ -- John-Mark Bell <jmb@pexip.com>  Tue, 24 Dec 2013 20:24:06 +0000
+
 gnupg (1.4.11-3ubuntu2.5) precise-security; urgency=low
 
   * SECURITY UPDATE: RSA Key Extraction via Low-Bandwidth Acoustic

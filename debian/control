@@ -1,9 +1,10 @@
 Source: gnupg
 Section: utils
 Priority: important
-Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
+Maintainer: Pexip AS <packaging@pexip.com>
+XSBC-Pexip-Original-Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
 XSBC-Original-Maintainer: Debian GnuPG-Maintainers <pkg-gnupg-maint@lists.alioth.debian.org>
-Uploaders: Sune Vuorela <debian@pusling.com>,
+XSBC-Pexip-Original-Uploaders: Sune Vuorela <debian@pusling.com>,
  Daniel Leidert (dale) <daniel.leidert@wgdd.de>,
  Thijs Kinkhorst <thijs@debian.org>
 Standards-Version: 3.9.1
@@ -14,6 +15,7 @@ Build-Depends: debhelper (>> 7), libz-dev, libldap2-dev, libbz2-dev,
 Homepage: http://www.gnupg.org
 Vcs-Browser: http://svn.debian.org/wsvn/pkg-gnupg/gnupg/
 Vcs-Svn: svn://svn.debian.org/svn/pkg-gnupg/gnupg/trunk/
+XS-Pexip-Upstream: http://archive.ubuntu.com/ubuntu/ precise
 
 Package: gnupg
 Architecture: any
