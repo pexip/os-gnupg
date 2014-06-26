@@ -1,3 +1,12 @@
+gnupg (1.4.11-3ubuntu2.6) precise-security; urgency=medium
+
+  * SECURITY UPDATE: denial of service via uncompressing garbled packets
+    - debian/patches/CVE-2014-4617.dpatch: limit number of extra bytes in
+      g10/compress.c.
+    - CVE-2014-4617
+
+ -- Marc Deslauriers <marc.deslauriers@ubuntu.com>  Thu, 26 Jun 2014 08:30:14 -0400
+
 gnupg (1.4.11-3ubuntu2.5) precise-security; urgency=low
 
   * SECURITY UPDATE: RSA Key Extraction via Low-Bandwidth Acoustic
