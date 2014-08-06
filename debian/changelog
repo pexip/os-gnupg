@@ -1,8 +1,17 @@
-gnupg (1.4.11-3ubuntu2.5pexip1) pexip; urgency=low
+gnupg (1.4.11-3ubuntu2.6pexip1) pexip; urgency=low
 
-  * Prepare Pexip packaging
+  * New upstream release
 
- -- John-Mark Bell <jmb@pexip.com>  Tue, 24 Dec 2013 20:24:06 +0000
+ -- John-Mark Bell <jmb@pexip.com>  Wed, 06 Aug 2014 12:37:32 +0100
+
+gnupg (1.4.11-3ubuntu2.6) precise-security; urgency=medium
+
+  * SECURITY UPDATE: denial of service via uncompressing garbled packets
+    - debian/patches/CVE-2014-4617.dpatch: limit number of extra bytes in
+      g10/compress.c.
+    - CVE-2014-4617
+
+ -- Marc Deslauriers <marc.deslauriers@ubuntu.com>  Thu, 26 Jun 2014 08:30:14 -0400
 
 gnupg (1.4.11-3ubuntu2.5) precise-security; urgency=low
 
