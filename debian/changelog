@@ -1,3 +1,18 @@
+gnupg (1.4.11-3ubuntu2.7pexip1) pexip; urgency=low
+
+  * New upstream release
+
+ -- John-Mark Bell <jmb@pexip.com>  Thu, 04 Sep 2014 03:00:21 +0100
+
+gnupg (1.4.11-3ubuntu2.7) precise-security; urgency=medium
+
+  * SECURITY UPDATE: side-channel attack on Elgamal encryption subkeys
+    - debian/patches/CVE-2014-5270.dpatch: use sliding window method for
+      exponentiation algorithm in mpi/mpi-pow.c.
+    - CVE-2014-5270
+
+ -- Marc Deslauriers <marc.deslauriers@ubuntu.com>  Tue, 19 Aug 2014 09:41:45 -0400
+
 gnupg (1.4.11-3ubuntu2.6pexip1) pexip; urgency=low
 
   * New upstream release
