@@ -1,3 +1,24 @@
+gnupg (1.4.11-3ubuntu2.7pexip2) pexip; urgency=low
+
+  * SECURITY UPDATE: side channel attack on Elgamal decryption
+    - debian/patches/CVE-2014-3591.patch: backport upstream patch
+    - CVE-2014-3591
+  * SECURITY UPDATE: data-dependent timing variations in the modular
+    exponentiation function may result in information leakage through
+    a side-channel attack
+    - debian/patches/CVE-2015-0837.patch: backport upstream patch
+    - CVE-2015-0837
+  * SECURITY UPDATE: use-after-free when importing a garbled keyring
+    file
+    - debian/patches/CVE-2015-1606.patch: backport upstream patch
+    - CVE-2015-1606
+  * SECURITY UPDATE: invalid read resulting from incorrect bitwise
+    left shifts
+    - debian/patches/CVE-2015-1607.patch: backport upstream patch
+    - CVE-2015-1607
+
+ -- John-Mark Bell <jmb@pexip.com>  Thu, 19 Mar 2015 18:26:37 +0000
+
 gnupg (1.4.11-3ubuntu2.7pexip1) pexip; urgency=low
 
   * New upstream release
