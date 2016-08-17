@@ -30,7 +30,7 @@
 #include "cipher.h"
 #include "options.h"
 #include "i18n.h"
-
+#include "status.h"
 
 static int mdc_decode_filter( void *opaque, int control, IOBUF a,
 					      byte *buf, size_t *ret_len);
@@ -91,6 +91,25 @@ decrypt_data( void *procctx, PKT_encrypted *ed, DEK *dek )
 	    log_info(_("encrypted with unknown algorithm %d\n"), dek->algo );
         dek->algo_info_printed = 1;
     }
+
+
+    {
+        char buf[20];
+
+        snprintf (buf, sizeof buf, "%d %d", ed->mdc_method, dek->algo);
+        write_status_text (STATUS_DECRYPTION_INFO, buf);
+    }
+
+    if (opt.show_session_key)
+      {
+        char *buf = xmalloc (dek->keylen*2 + 20);
+        sprintf (buf, "%d:", dek->algo);
+        for (i=0; i < dek->keylen; i++ )
+          sprintf(buf+strlen(buf), "%02X", dek->key[i] );
+        log_info ("session key: `%s'\n", buf);
+        write_status_text (STATUS_SESSION_KEY, buf);
+      }
+
     if( (rc=check_cipher_algo(dek->algo)) )
 	goto leave;
     blocksize = cipher_get_blocksize(dek->algo);
@@ -120,7 +139,7 @@ decrypt_data( void *procctx, PKT_encrypted *ed, DEK *dek )
       {
 	log_error("key setup failed: %s\n", g10_errstr(rc) );
 	goto leave;
-      
+
       }
     if (!ed->buf) {
         log_error(_("problem handling encrypted packet\n"));
@@ -189,17 +208,15 @@ decrypt_data( void *procctx, PKT_encrypted *ed, DEK *dek )
 	cipher_decrypt ( dfx->cipher_hd, dfx->defer, dfx->defer, 22);
         md_write ( dfx->mdc_hash, dfx->defer, 2);
 	md_final ( dfx->mdc_hash );
-        if (dfx->defer[0] != '\xd3' || dfx->defer[1] != '\x14' ) {
-            log_error("mdc_packet with invalid encoding\n");
-            rc = G10ERR_INVALID_PACKET;
-        }
-	else if ( datalen != 20
-	    || memcmp(md_read( dfx->mdc_hash, 0 ), dfx->defer+2, datalen) )
+        if (   dfx->defer[0] != '\xd3'
+            || dfx->defer[1] != '\x14'
+            || datalen != 20
+	    || memcmp (md_read (dfx->mdc_hash, 0 ), dfx->defer+2, datalen))
 	    rc = G10ERR_BAD_SIGN;
 	/*log_hexdump("MDC calculated:",md_read( dfx->mdc_hash, 0), datalen);*/
 	/*log_hexdump("MDC message   :", dfx->defer, 20);*/
     }
-    
+
 
   leave:
     release_dfx_context (dfx);
@@ -298,7 +315,8 @@ decode_filter( void *opaque, int control, IOBUF a, byte *buf, size_t *ret_len)
     if( control == IOBUFCTRL_UNDERFLOW ) {
 	assert(a);
 	n = iobuf_read( a, buf, size );
-	if( n == -1 ) n = 0;
+	if (n == (size_t)(-1))
+          n = 0;
 	if( n ) {
             if (fc->cipher_hd)
                 cipher_decrypt( fc->cipher_hd, buf, buf, n);

@@ -120,7 +120,7 @@ set_packet_list_mode( int mode )
        be easy to add an option for the listing stream.  Note that we
        initialize it only once; mainly because some code may switch
        the option value later back to 1 and we want to have all output
-       to the same stream.  
+       to the same stream.
 
        Using stderr is not actually very clean because it bypasses the
        logging code but it is a special thing anyay.  I am not sure
@@ -459,7 +459,7 @@ parse( IOBUF inp, PACKET *pkt, int onlykeypkts, off_t *retpos,
 
     if (with_uid && pkttype == PKT_USER_ID)
         ;
-    else if( do_skip 
+    else if( do_skip
         || !pkttype
         || (onlykeypkts && pkttype != PKT_PUBLIC_SUBKEY
                         && pkttype != PKT_PUBLIC_KEY
@@ -858,10 +858,10 @@ dump_sig_subpkt( int hashed, int type, int critical,
                  "the owner of this ARR key. Detailed info follows:\n",
                  type, (unsigned)length );
     }
-    
+
     buffer++;
     length--;
-   
+
     fprintf (listfp, "\t%s%ssubpkt %d len %u (", /*)*/
 	      critical ? "critical ":"",
 	      hashed ? "hashed ":"", type, (unsigned)length );
@@ -1606,7 +1606,7 @@ read_protected_v3_mpi (IOBUF inp, unsigned long *length)
     }
 
   /* convert buffer into an opaque MPI */
-  val = mpi_set_opaque (NULL, buf, p-buf); 
+  val = mpi_set_opaque (NULL, buf, p-buf);
   return val;
 }
 
@@ -1621,6 +1621,7 @@ parse_key( IOBUF inp, int pkttype, unsigned long pktlen,
     int npkey, nskey;
     int is_v4=0;
     int rc=0;
+    u32 keyid[2];
 
     version = iobuf_get_noeof(inp); pktlen--;
     if( pkttype == PKT_PUBLIC_SUBKEY && version == '#' ) {
@@ -1690,7 +1691,7 @@ parse_key( IOBUF inp, int pkttype, unsigned long pktlen,
 	sk->version = version;
 	sk->is_primary = pkttype == PKT_SECRET_KEY;
 	sk->pubkey_algo = algorithm;
-	sk->req_usage = 0; 
+	sk->req_usage = 0;
 	sk->pubkey_usage = 0; /* not yet used */
     }
     else {
@@ -1703,7 +1704,7 @@ parse_key( IOBUF inp, int pkttype, unsigned long pktlen,
 	pk->version	= version;
 	pk->is_primary = pkttype == PKT_PUBLIC_KEY;
 	pk->pubkey_algo = algorithm;
-	pk->req_usage = 0; 
+	pk->req_usage = 0;
 	pk->pubkey_usage = 0; /* not yet used */
         pk->is_revoked = 0;
 	pk->is_disabled = 0;
@@ -1717,7 +1718,6 @@ parse_key( IOBUF inp, int pkttype, unsigned long pktlen,
 	    fprintf (listfp, "\tunknown algorithm %d\n", algorithm );
 	unknown_pubkey_warning( algorithm );
     }
-
 
     if( pkttype == PKT_SECRET_KEY || pkttype == PKT_SECRET_SUBKEY ) {
 	PKT_secret_key *sk = pkt->pkt.secret_key;
@@ -1743,6 +1743,9 @@ parse_key( IOBUF inp, int pkttype, unsigned long pktlen,
 	}
         if (rc) /* one of the MPIs were bad */
             goto leave;
+        if (list_mode && npkey)
+            keyid_from_sk (sk, keyid);
+
 	sk->protect.algo = iobuf_get_noeof(inp); pktlen--;
         sk->protect.sha1chk = 0;
 	if( sk->protect.algo ) {
@@ -1831,8 +1834,10 @@ parse_key( IOBUF inp, int pkttype, unsigned long pktlen,
 		    sk->protect.s2k.count = iobuf_get(inp);
 		    pktlen--;
 		    if( list_mode )
-			fprintf (listfp, "\tprotect count: %lu\n",
-					    (ulong)sk->protect.s2k.count);
+			fprintf (listfp, "\tprotect count: %lu (%lu)\n",
+                                (ulong)S2K_DECODE_COUNT
+                                 ((ulong)sk->protect.s2k.count),
+                                 (ulong)sk->protect.s2k.count);
 		}
 		else if( sk->protect.s2k.mode == 1002 ) {
                     /* Read the serial number. */
@@ -1842,7 +1847,7 @@ parse_key( IOBUF inp, int pkttype, unsigned long pktlen,
 		    }
 		    snlen = iobuf_get (inp);
 		    pktlen--;
-                    if (pktlen < snlen || snlen == -1) {
+                    if (pktlen < snlen || snlen == (size_t)(-1)) {
 			rc = G10ERR_INVALID_PACKET;
 			goto leave;
                     }
@@ -1902,7 +1907,7 @@ parse_key( IOBUF inp, int pkttype, unsigned long pktlen,
 	 * If the user is so careless, not to protect his secret key,
 	 * we can assume, that he operates an open system :=(.
 	 * So we put the key into secure memory when we unprotect it. */
-	if( sk->protect.s2k.mode == 1001 
+	if( sk->protect.s2k.mode == 1001
             || sk->protect.s2k.mode == 1002 ) {
 	    /* better set some dummy stuff here */
 	    sk->skey[npkey] = mpi_set_opaque(NULL, xstrdup("dummydata"), 10);
@@ -1923,7 +1928,7 @@ parse_key( IOBUF inp, int pkttype, unsigned long pktlen,
 	    for(i=npkey; i < nskey; i++ ) {
                 if ( sk->is_protected ) {
                     sk->skey[i] = read_protected_v3_mpi (inp, &pktlen);
-                    if( list_mode ) 
+                    if( list_mode )
                         fprintf (listfp,   "\tskey[%d]: [encrypted]\n", i);
                 }
                 else {
@@ -1971,7 +1976,14 @@ parse_key( IOBUF inp, int pkttype, unsigned long pktlen,
 	}
         if (rc)
             goto leave;
+
+        if (list_mode)
+            keyid_from_pk (pk, keyid);
     }
+
+  if (list_mode && npkey)
+      fprintf (listfp, "\tkeyid: %08lX%08lX\n",
+              (ulong) keyid[0], (ulong) keyid[1]);
 
   leave:
     iobuf_skip_rest(inp, pktlen, 0);
@@ -2294,7 +2306,7 @@ parse_compressed( IOBUF inp, int pkttype, unsigned long pktlen,
      */
     zd = pkt->pkt.compressed =	xmalloc(sizeof *pkt->pkt.compressed );
     zd->algorithm = iobuf_get_noeof(inp);
-    zd->len = 0; /* not used */ 
+    zd->len = 0; /* not used */
     zd->new_ctb = new_ctb;
     zd->buf = inp;
     if( list_mode )
@@ -2327,7 +2339,7 @@ parse_encrypted( IOBUF inp, int pkttype, unsigned long pktlen,
 	/* fixme: add some pktlen sanity checks */
 	int version;
 
-	version = iobuf_get_noeof(inp); 
+	version = iobuf_get_noeof(inp);
         if (orig_pktlen)
             pktlen--;
 	if( version != 1 ) {

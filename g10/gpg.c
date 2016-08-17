@@ -1,6 +1,7 @@
 /* gpg.c - The GnuPG utility (main for gpg)
  * Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006,
- *               2007, 2008, 2009 Free Software Foundation, Inc.
+ *               2007, 2008, 2009, 2010, 2012 Free Software Foundation, Inc.
+ * Copyright (C) 1997, 1998, 2013 Werner Koch
  *
  * This file is part of GnuPG.
  *
@@ -38,6 +39,9 @@
 #include <fcntl.h>
 #ifdef HAVE_W32_SYSTEM
 #include <windows.h>
+#endif
+#ifdef __VMS
+# include "vms.h"
 #endif
 
 #define INCLUDED_BY_MAIN_MODULE 1
@@ -279,7 +283,7 @@ enum cmd_and_opt_values
     oS2KDigest,
     oS2KCipher,
     oS2KCount,
-    oSimpleSKChecksum,                          
+    oSimpleSKChecksum,
     oDisplayCharset,
     oNotDashEscaped,
     oEscapeFrom,
@@ -308,7 +312,7 @@ enum cmd_and_opt_values
     oNoAllowNonSelfsignedUID,
     oAllowFreeformUID,
     oNoAllowFreeformUID,
-    oAllowSecretKeyImport,                      
+    oAllowSecretKeyImport,
     oEnableSpecialFilenames,
     oNoLiteral,
     oSetFilesize,
@@ -789,8 +793,8 @@ strusage( int level )
 	break;
       case 41:	p =
 	    _("Syntax: gpg [options] [files]\n"
-	      "sign, check, encrypt or decrypt\n"
-	      "default operation depends on the input data\n");
+	      "Sign, check, encrypt or decrypt\n"
+	      "Default operation depends on the input data\n");
 	break;
 
       case 31: p = "\nHome: "; break;
@@ -832,57 +836,53 @@ strusage( int level )
 
 
 static char *
-build_list( const char *text, char letter,
-	    const char * (*mapf)(int), int (*chkf)(int) )
+build_list (const char *text, char letter,
+	    const char * (*mapf)(int), int (*chkf)(int))
 {
-    int i;
-    const char *s;
-    size_t n=strlen(text)+2;
-    char *list, *p, *line=NULL;
+  membuf_t mb;
+  int indent;
+  int i, j, len;
+  const char *s;
+  char *string;
 
-    if( maybe_setuid )
-	secmem_init( 0 );    /* drop setuid */
+  if (maybe_setuid)
+    secmem_init (0);    /* Drop setuid */
 
-    for(i=0; i <= 110; i++ )
-	if( !chkf(i) && (s=mapf(i)) )
-	    n += strlen(s) + 7 + 2;
-    list = xmalloc( 21 + n ); *list = 0;
-    for(p=NULL, i=0; i <= 110; i++ ) {
-	if( !chkf(i) && (s=mapf(i)) ) {
-	    if( !p ) {
-		p = stpcpy( list, text );
-		line=p;
+  indent = strlen (text);
+  len = 0;
+  init_membuf (&mb, 512);
+
+  for (i=0; i <= 110; i++ )
+    {
+      if (!chkf (i) && (s = mapf (i)))
+        {
+          if (mb.len - len > 60)
+            {
+              put_membuf_str (&mb, ",\n");
+              len = mb.len;
+              for (j=0; j < indent; j++)
+                put_membuf_str (&mb, " ");
 	    }
-	    else
-		p = stpcpy( p, ", ");
+          else if (mb.len)
+            put_membuf_str (&mb, ", ");
+          else
+            put_membuf_str (&mb, text);
 
-	    if(strlen(line)>60) {
-	      int spaces=strlen(text);
-
-	      list=xrealloc(list,n+spaces+1);
-	      /* realloc could move the block, so find the end again */
-	      p=list;
-	      while(*p)
-		p++;
-
-	      p=stpcpy(p, "\n");
-	      line=p;
-	      for(;spaces;spaces--)
-		p=stpcpy(p, " ");
-	    }
-
-	    p = stpcpy(p, s );
-	    if(opt.verbose && letter)
-	      {
-		char num[8];
-		sprintf(num," (%c%d)",letter,i);
-		p = stpcpy(p,num);
-	      }
+          put_membuf_str (&mb, s);
+          if (opt.verbose && letter)
+            {
+              char num[20];
+              snprintf (num, sizeof num, " (%c%d)", letter, i);
+              put_membuf_str (&mb, num);
+            }
 	}
     }
-    if( p )
-	p = stpcpy(p, "\n" );
-    return list;
+  if (mb.len)
+    put_membuf_str (&mb, "\n");
+  put_membuf (&mb, "", 1);
+
+  string = get_membuf (&mb, NULL);
+  return xrealloc (string, strlen (string)+1);
 }
 
 
@@ -992,7 +992,7 @@ open_info_file (const char *fname, int for_write)
      sensitive information may be retrieved by means of error
      messages.  */
   return -1;
-#else 
+#else
   int fd;
 
 /*   if (is_secured_filename (fname)) */
@@ -1015,7 +1015,7 @@ open_info_file (const char *fname, int for_write)
   if ( fd == -1)
     log_error ( for_write? _("can't create `%s': %s\n")
                          : _("can't open `%s': %s\n"), fname, strerror(errno));
-  
+
   return fd;
 #endif
 }
@@ -1131,8 +1131,6 @@ rm_group(char *name)
    directory is group or other writable or not owned by us.  Disable
    exec in this case.
 
-   2) Extensions.  Same as #1.
-
    Returns true if the item is unsafe. */
 static int
 check_permissions(const char *path,int item)
@@ -1149,16 +1147,7 @@ check_permissions(const char *path,int item)
 
   assert(item==0 || item==1 || item==2);
 
-  /* extensions may attach a path */
-  if(item==2 && path[0]!=DIRSEP_C)
-    {
-      if(strchr(path,DIRSEP_C))
-	tmppath=make_filename(path,NULL);
-      else
-	tmppath=make_filename(GNUPG_LIBDIR,path,NULL);
-    }
-  else
-    tmppath=xstrdup(path);
+  tmppath=xstrdup(path);
 
   /* If the item is located in the homedir, but isn't the homedir,
      don't continue if we already checked the homedir itself.  This is
@@ -1215,9 +1204,9 @@ check_permissions(const char *path,int item)
 	  homedir_cache=ret;
 	}
     }
-  else if(item==1 || item==2)
+  else if(item==1)
     {
-      /* The options or extension file.  Okay unless it or its
+      /* The options file.  Okay unless it or its
 	 containing directory is group or other writable or not owned
 	 by us or root. */
 
@@ -1268,48 +1257,36 @@ check_permissions(const char *path,int item)
 	  if(item==0)
 	    log_info(_("WARNING: unsafe ownership on"
 		       " homedir `%s'\n"),tmppath);
-	  else if(item==1)
-	    log_info(_("WARNING: unsafe ownership on"
-		       " configuration file `%s'\n"),tmppath);
 	  else
 	    log_info(_("WARNING: unsafe ownership on"
-		       " extension `%s'\n"),tmppath);
+		       " configuration file `%s'\n"),tmppath);
 	}
       if(perm)
 	{
 	  if(item==0)
 	    log_info(_("WARNING: unsafe permissions on"
 		       " homedir `%s'\n"),tmppath);
-	  else if(item==1)
-	    log_info(_("WARNING: unsafe permissions on"
-		       " configuration file `%s'\n"),tmppath);
 	  else
 	    log_info(_("WARNING: unsafe permissions on"
-		       " extension `%s'\n"),tmppath);
+		       " configuration file `%s'\n"),tmppath);
 	}
       if(enc_dir_own)
 	{
 	  if(item==0)
 	    log_info(_("WARNING: unsafe enclosing directory ownership on"
 		       " homedir `%s'\n"),tmppath);
-	  else if(item==1)
-	    log_info(_("WARNING: unsafe enclosing directory ownership on"
-		       " configuration file `%s'\n"),tmppath);
 	  else
 	    log_info(_("WARNING: unsafe enclosing directory ownership on"
-		       " extension `%s'\n"),tmppath);
+		       " configuration file `%s'\n"),tmppath);
 	}
       if(enc_dir_perm)
 	{
 	  if(item==0)
 	    log_info(_("WARNING: unsafe enclosing directory permissions on"
 		       " homedir `%s'\n"),tmppath);
-	  else if(item==1)
-	    log_info(_("WARNING: unsafe enclosing directory permissions on"
-		       " configuration file `%s'\n"),tmppath);
 	  else
 	    log_info(_("WARNING: unsafe enclosing directory permissions on"
-		       " extension `%s'\n"),tmppath);
+		       " configuration file `%s'\n"),tmppath);
 	}
     }
 
@@ -1678,7 +1655,7 @@ parse_trust_model(const char *model)
 /* Must be called before we open any files. */
 static void
 reopen_std(void)
-{  
+{
 #if defined(HAVE_STAT) && !defined(HAVE_W32_SYSTEM)
   struct stat statbuf;
   int did_stdin=0,did_stdout=0,did_stderr=0;
@@ -1775,7 +1752,7 @@ get_default_configname (void)
       if (configname)
 	{
 	  char *tok;
-	  
+
 	  xfree (configname);
 	  configname = NULL;
 
@@ -1786,13 +1763,13 @@ get_default_configname (void)
 	  else
 	    break;
 	}
-      
+
       configname = make_filename (opt.homedir, name, NULL);
     }
   while (access (configname, R_OK));
 
   xfree(name);
-  
+
   if (! configname)
     configname = make_filename (opt.homedir, "gpg" EXTSEP_S "conf", NULL);
   if (! access (configname, R_OK))
@@ -1872,6 +1849,15 @@ main (int argc, char **argv )
     opt.lock_once = 1;
 #endif /* __riscos__ */
 
+#ifdef __VMS
+    /* On VMS, set the default value of the "--[no-]batch" flag
+     * according to the actual process mode.  The user can override
+     * this with an explicit command-line "--[no-]batch" option.  This
+     * avoids that the process stops while trying to initialize the
+     * tty in batch mode.  */
+    opt.batch = batch_mode_vms();
+#endif
+
     reopen_std();
     trap_unaligned();
     secmem_set_flags( secmem_get_flags() | 2 ); /* suspend warnings */
@@ -1883,7 +1869,7 @@ main (int argc, char **argv )
     secure_randoxmalloc(); /* put random number into secure memory */
     may_coredump = disable_core_dumps();
     init_signals();
-    create_dotlock(NULL); /* register locking cleanup */
+    dotlock_create (NULL, 0); /* Register locking cleanup.  */
     i18n_init();
     opt.command_fd = -1; /* no command fd */
     opt.compress_level = -1; /* defaults to standard compress level */
@@ -1923,6 +1909,7 @@ main (int argc, char **argv )
     opt.def_cert_expire="0";
     set_homedir ( default_homedir () );
     opt.passwd_repeat=1;
+    opt.emit_version = 1; /* Limit to the major number.  */
 
 #ifdef ENABLE_CARD_SUPPORT
 #if defined(_WIN32) || defined(__CYGWIN__)
@@ -1930,9 +1917,9 @@ main (int argc, char **argv )
 #elif defined(__APPLE__)
     opt.pcsc_driver = "/System/Library/Frameworks/PCSC.framework/PCSC";
 #elif defined(__GLIBC__)
-    opt.pcsc_driver = "libpcsclite.so.1"; 
+    opt.pcsc_driver = "libpcsclite.so.1";
 #else
-    opt.pcsc_driver = "libpcsclite.so"; 
+    opt.pcsc_driver = "libpcsclite.so";
 #endif
     opt.disable_keypad = 1;  /* No keypad support; use gpg2 instead.  */
 #endif /*ENABLE_CARD_SUPPORT*/
@@ -2079,19 +2066,19 @@ main (int argc, char **argv )
       {
 	switch( pargs.r_opt )
 	  {
-	  case aCheckKeys: 
+	  case aCheckKeys:
 	  case aListConfig:
           case aGPGConfList:
           case aGPGConfTest:
 	  case aListPackets:
-	  case aImport: 
-	  case aFastImport: 
-	  case aSendKeys: 
-	  case aRecvKeys: 
+	  case aImport:
+	  case aFastImport:
+	  case aSendKeys:
+	  case aRecvKeys:
 	  case aSearchKeys:
 	  case aRefreshKeys:
 	  case aFetchKeys:
-	  case aExport: 
+	  case aExport:
             set_cmd (&cmd, pargs.r_opt);
             break;
 	  case aListKeys: set_cmd( &cmd, aListKeys); break;
@@ -2104,7 +2091,7 @@ main (int argc, char **argv )
 	    break;
 	  case aDeleteSecretAndPublicKeys:
             set_cmd( &cmd, aDeleteSecretAndPublicKeys);
-            greeting=1; 
+            greeting=1;
             break;
 	  case aDeleteKeys: set_cmd( &cmd, aDeleteKeys); greeting=1; break;
 
@@ -2205,7 +2192,7 @@ main (int argc, char **argv )
 	  case oDebug: opt.debug |= pargs.r.ret_ulong; break;
 	  case oDebugAll: opt.debug = ~0; break;
           case oDebugLevel: break; /* Not supported.  */
-          case oDebugCCIDDriver: 
+          case oDebugCCIDDriver:
 #if defined(ENABLE_CARD_SUPPORT) && defined(HAVE_LIBUSB)
             ccid_set_debug_level (ccid_set_debug_level (1)+1);
 #endif
@@ -2260,8 +2247,8 @@ main (int argc, char **argv )
 	  case oNoVerbose: g10_opt_verbose = 0;
 			   opt.verbose = 0; opt.list_sigs=0; break;
 	  case oQuickRandom: quick_random_gen(1); break;
-	  case oEmitVersion: opt.no_version=0; break;
-	  case oNoEmitVersion: opt.no_version=1; break;
+	  case oEmitVersion: opt.emit_version++; break;
+	  case oNoEmitVersion: opt.emit_version=0; break;
 	  case oCompletesNeeded: opt.completes_needed = pargs.r.ret_int; break;
 	  case oMarginalsNeeded: opt.marginals_needed = pargs.r.ret_int; break;
 	  case oMaxCertDepth: opt.max_cert_depth = pargs.r.ret_int; break;
@@ -2306,19 +2293,7 @@ main (int argc, char **argv )
 	      }
 	    break;
 	  case oLoadExtension:
-#ifndef __riscos__
-#if defined(USE_DYNAMIC_LINKING) || defined(_WIN32)
-	    if(check_permissions(pargs.r.ret_str,2))
-	      log_info(_("cipher extension `%s' not loaded due to"
-			 " unsafe permissions\n"),pargs.r.ret_str);
-	    else
-	      register_cipher_extension(orig_argc? *orig_argv:NULL,
-					pargs.r.ret_str);
-#endif
-#else /* __riscos__ */
-            riscos_not_implemented("load-extension");
-#endif /* __riscos__ */
-	    break;
+            break;  /* This is a dummy option since 1.4.13.  */
 	  case oRFC1991:
 	    opt.compliance = CO_RFC1991;
 	    opt.force_v4_certs = 0;
@@ -2549,7 +2524,7 @@ main (int argc, char **argv )
 	  case oCommandFile:
             opt.command_fd = open_info_file (pargs.r.ret_str, 0);
             break;
-	  case oCipherAlgo: 
+	  case oCipherAlgo:
             def_cipher_string = xstrdup(pargs.r.ret_str);
             break;
 	  case oDigestAlgo:
@@ -2595,7 +2570,7 @@ main (int argc, char **argv )
 	  case oNoEscapeFrom: opt.escape_from = 0; break;
 	  case oLockOnce: opt.lock_once = 1; break;
 	  case oLockNever:
-            disable_dotlock ();
+            dotlock_disable ();
             random_disable_locking ();
             break;
 	  case oLockMultiple:
@@ -2855,8 +2830,8 @@ main (int argc, char **argv )
             opt.exit_on_status_write_error = 1;
             break;
 
-	  case oLimitCardInsertTries: 
-            opt.limit_card_insert_tries = pargs.r.ret_int; 
+	  case oLimitCardInsertTries:
+            opt.limit_card_insert_tries = pargs.r.ret_int;
             break;
 
 	  case oRequireCrossCert: opt.flags.require_cross_cert=1; break;
@@ -2967,7 +2942,7 @@ main (int argc, char **argv )
 		        "--no-literal" );
     }
 
-#ifndef ENABLE_AGENT_SUPPORT   
+#ifndef ENABLE_AGENT_SUPPORT
     if (opt.use_agent) {
       log_info(_("NOTE: %s is not available in this version\n"),
                "--use-agent");
@@ -3025,7 +3000,6 @@ main (int argc, char **argv )
 	      {
 		log_info(_("encrypting a message in --pgp2 mode requires "
 			   "the IDEA cipher\n"));
-		idea_cipher_warn(1);
 		unusable=1;
 	      }
 	    else if(cmd==aSym)
@@ -3085,10 +3059,6 @@ main (int argc, char **argv )
      * may try to load an module */
     if( def_cipher_string ) {
 	opt.def_cipher_algo = string_to_cipher_algo(def_cipher_string);
-	if(opt.def_cipher_algo==0 &&
-	   (ascii_strcasecmp(def_cipher_string,"idea")==0
-	    || ascii_strcasecmp(def_cipher_string,"s1")==0))
-	  idea_cipher_warn(1);
 	xfree(def_cipher_string); def_cipher_string = NULL;
 	if( check_cipher_algo(opt.def_cipher_algo) )
 	    log_error(_("selected cipher algorithm is invalid\n"));
@@ -3147,11 +3117,6 @@ main (int argc, char **argv )
     if(opt.def_preference_list &&
 	keygen_set_std_prefs(opt.def_preference_list,0))
       log_error(_("invalid default preferences\n"));
-
-    /* We provide defaults for the personal digest list.  This is
-       SHA-1. */
-    if(!pers_digest_list)
-      pers_digest_list="h2";
 
     if(pers_cipher_list &&
        keygen_set_std_prefs(pers_cipher_list,PREFTYPE_SYM))
@@ -3310,13 +3275,13 @@ main (int argc, char **argv )
        case of "-kvv userid keyring".  Also avoid adding the secret
        keyring for a couple of commands to avoid unneeded access in
        case the secrings are stored on a floppy.
-       
+
        We always need to add the keyrings if we are running under
        SELinux, this is so that the rings are added to the list of
        secured files. */
-    if( ALWAYS_ADD_KEYRINGS 
+    if( ALWAYS_ADD_KEYRINGS
         || (cmd != aDeArmor && cmd != aEnArmor
-            && !(cmd == aKMode && argc == 2 )) ) 
+            && !(cmd == aKMode && argc == 2 )) )
       {
         if (ALWAYS_ADD_KEYRINGS
             || (cmd != aCheckKeys && cmd != aListSigs && cmd != aListKeys
@@ -3355,19 +3320,23 @@ main (int argc, char **argv )
       case aFixTrustDB:
       case aExportOwnerTrust: rc = setup_trustdb( 0, trustdb_name ); break;
       case aListTrustDB: rc = setup_trustdb( argc? 1:0, trustdb_name ); break;
-      default: rc = setup_trustdb(1, trustdb_name ); break;
-    }
+      default:
+          /* No need to create the trust model if we are using the
+         * always trust model.  */
+        rc = setup_trustdb (opt.trust_model != TM_ALWAYS, trustdb_name);
+        break;
+      }
     if( rc )
 	log_error(_("failed to initialize the TrustDB: %s\n"), g10_errstr(rc));
 
 
     switch (cmd)
       {
-      case aStore: 
-      case aSym:  
-      case aSign: 
-      case aSignSym: 
-      case aClearsign: 
+      case aStore:
+      case aSym:
+      case aSign:
+      case aSignSym:
+      case aClearsign:
         if (!opt.quiet && any_explicit_recipient)
           log_info (_("WARNING: recipients (-r) given "
                       "without using public key encryption\n"));
@@ -3527,7 +3496,7 @@ main (int argc, char **argv )
 	      log_error("decrypt_message failed: %s\n", g10_errstr(rc) );
 	  }
 	break;
-            
+
       case aSignKey:
 	if( argc != 1 )
 	  wrong_args(_("--sign-key user-id"));
@@ -3906,7 +3875,7 @@ main (int argc, char **argv )
 	    wrong_args("--import-ownertrust [file]");
 	import_ownertrust( argc? *argv:NULL );
 	break;
-      
+
       case aPipeMode:
         if ( argc )
             wrong_args ("--pipemode");
@@ -4111,12 +4080,12 @@ print_hashline( MD_HANDLE md, int algo, const char *fname )
 {
     int i, n;
     const byte *p;
-    
+
     if ( fname ) {
         for (p = fname; *p; p++ ) {
             if ( *p <= 32 || *p > 127 || *p == ':' || *p == '%' )
                 printf("%%%02X", *p );
-            else 
+            else
                 putchar( *p );
         }
     }
@@ -4124,7 +4093,7 @@ print_hashline( MD_HANDLE md, int algo, const char *fname )
     printf("%d:", algo );
     p = md_read( md, algo );
     n = md_digest_length(algo);
-    for(i=0; i < n ; i++, p++ ) 
+    for(i=0; i < n ; i++, p++ )
         printf("%02X", *p );
     putchar(':');
     putchar('\n');
@@ -4182,7 +4151,7 @@ print_mds( const char *fname, int algo )
     else {
 	md_final(md);
         if ( opt.with_colons ) {
-            if ( algo ) 
+            if ( algo )
                 print_hashline( md, algo, fname );
             else {
                 print_hashline( md, DIGEST_ALGO_MD5, fname );
@@ -4279,7 +4248,7 @@ add_policy_url( const char *string, int which )
     sl=add_to_strlist( &opt.sig_policy_url, string );
 
   if(critical)
-    sl->flags |= 1;    
+    sl->flags |= 1;
 }
 
 static void
@@ -4312,5 +4281,5 @@ add_keyserver_url( const char *string, int which )
     sl=add_to_strlist( &opt.sig_keyserver_url, string );
 
   if(critical)
-    sl->flags |= 1;    
+    sl->flags |= 1;
 }

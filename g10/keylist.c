@@ -1,6 +1,6 @@
 /* keylist.c
  * Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006,
- *               2008 Free Software Foundation, Inc.
+ *               2008, 2012 Free Software Foundation, Inc.
  *
  * This file is part of GnuPG.
  *
@@ -60,11 +60,11 @@ public_key_list( STRLIST list )
 {
   if(opt.with_colons)
     {
-      byte trust_model,marginals,completes,cert_depth;
+      byte trust_model,marginals,completes,cert_depth,min_cert_level;
       ulong created,nextcheck;
 
       read_trust_options(&trust_model,&created,&nextcheck,
-			 &marginals,&completes,&cert_depth);
+			 &marginals,&completes,&cert_depth,&min_cert_level);
 
       printf("tru:");
 
@@ -80,6 +80,8 @@ public_key_list( STRLIST list )
 	    printf("c");
 	  if(cert_depth!=opt.max_cert_depth)
 	    printf("d");
+	  if(min_cert_level!=opt.min_cert_level)
+	    printf("l");
 	}
 
       printf(":%d:%lu:%lu",trust_model,created,nextcheck);
@@ -1368,19 +1370,15 @@ list_keyblock_colon( KBNODE keyblock, int secret, int fpr )
                 print_string( stdout, p, n, ':' );
 		xfree(p);
 	    }
-            printf(":%02x%c:", sig->sig_class,sig->flags.exportable?'x':'l');
+            printf(":%02x%c::", sig->sig_class,sig->flags.exportable?'x':'l');
 
 	    if(opt.no_sig_cache && opt.check_sigs && fprokay)
 	      {
-		printf(":");
-
 		for (i=0; i < fplen ; i++ )
 		  printf ("%02X", fparray[i] );
-
-		printf(":");
 	      }
 
-	    printf("\n");
+	    printf(":::%d:\n", sig->digest_algo);
 
 	    if(opt.show_subpackets)
 	      print_subpackets_colon(sig);

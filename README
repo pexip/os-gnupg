@@ -1,11 +1,12 @@
 
 		    GnuPG - The GNU Privacy Guard
 		   -------------------------------
-                            Version 1.4.11
+                            Version 1.4.18
 
-	 Copyright 1998, 1999, 2000, 2001, 2002, 2003, 
+	 Copyright 1998, 1999, 2000, 2001, 2002, 2003,
                    2004, 2005, 2006, 2007, 2008, 2009,
-                   2010  Free Software Foundation, Inc.
+                   2010, 2012, 2013  Free Software Foundation, Inc.
+         Copyright 1997, 1998, 2013, 2014 Werner Koch
 
     This file is free software; as a special exception the author
     gives unlimited permission to copy and/or distribute it, with or
@@ -31,13 +32,14 @@
     list of systems which are known to work.
 
     GnuPG is distributed under the terms of the GNU General Public
-    License.  See the file COPYING for copyright and warranty
-    information.
+    License.  See the files AUTHORS and COPYING for copyright and
+    warranty information.
 
-    Because GnuPG does not use use any patented algorithms it is not
-    by default fully compatible with PGP 2.x, which uses the patented
-    IDEA algorithm.  See http://www.gnupg.org/why-not-idea.html for
-    more information on this subject.
+    Because GnuPG does not use any patented algorithms it used not to
+    be fully compatible with PGP 2.  Now, that the patent on the IDEA
+    cipher algorithm has expired, we support that algorithm and thus
+    provide full compatibility with PGP 2.  This allows the decryption
+    of data once encrypted using PGP 2.
 
     The default public key algorithm is RSA, but DSA and Elgamal are
     also supported.  Symmetric algorithms available are AES (with 128,
@@ -57,7 +59,7 @@
        this.  Don't skip it - this is an important step!
 
     2) Unpack the tarball.  With GNU tar you can do it this way:
-       "tar xzvf gnupg-x.y.z.tar.gz".  If got a bzip2 compressed
+       "tar xzvf gnupg-x.y.z.tar.gz".  If you got a bzip2 compressed
        tarball you need to use: "tar xjvf gnupg-x.y.z.tar.bz2".
 
     3) "cd gnupg-x.y.z"
@@ -70,11 +72,11 @@
 
     7) You end up with a "gpg" binary in /usr/local/bin.
 
-    8) To avoid swapping out of sensitive data, you can install "gpg"
-       setuid root.  If you don't do so, you may want to add the
-       option "no-secmem-warning" to ~/.gnupg/gpg.conf.  Note that on
-       modern GNU/Linux systems swapping protection does not anymore
-       require GPG to be installed setuid root.
+    8) To avoid swapping out of sensitive data, you may need to
+       install "gpg" setuid root.  If you don't do so, you may want to
+       add the option "no-secmem-warning" to ~/.gnupg/gpg.conf.  Note
+       that on modern GNU/Linux systems swapping protection does not
+       anymore require GPG to be installed setuid root.
 
 
     How to Verify the Source
@@ -93,7 +95,8 @@
        is indeed a signature of gnupg-x.y.z.tar.gz.  The key currently
        used to create this signature is:
 
-       "pub  1024R/1CE0C630 2006-01-01 Werner Koch (dist sig) <dd9jn@gnu.org>"
+       "pub   2048R/4F25E3B6 2011-01-12 [expires: 2019-12-31]
+       "uid                  Werner Koch (dist sig)
 
        If you do not have this key, you can get it from the source in
        the file doc/samplekeys.asc (use "gpg --import  doc/samplekeys.asc"
@@ -101,7 +104,7 @@
        make sure that this is really the key and not a faked one. You
        can do this by comparing the output of:
 
-        $ gpg --fingerprint 0x1CE0C630
+        $ gpg --fingerprint 0x4F25E3B6
 
        with the fingerprint published elsewhere.
 
@@ -142,7 +145,7 @@
 	http://www.gnupg.org/documentation/howtos.html
 
     A man page with a description of all commands and options gets installed
-    along with the program. 
+    along with the program.
 
 
     Introduction
@@ -317,17 +320,20 @@
     claims to own it.
 
     There are 2 steps to validate a key:
+
 	1. First check that there is a complete chain
 	   of signed keys from the public key you want to use
 	   and your key and verify each signature.
 	2. Make sure that you have full trust in the certificates
 	   of all the introduces between the public key holder and
 	   you.
+
     Step 2 is the more complicated part because there is no easy way
     for a computer to decide who is trustworthy and who is not.  GnuPG
     leaves this decision to you and will ask you for a trust value
     (here also referenced as the owner-trust of a key) for every key
     needed to check the chain of certificates.	You may choose from:
+
       a) "I don't know" - then it is not possible to use any
 	 of the chains of certificates, in which this key is used
 	 as an introducer, to validate the target key.	Use this if
@@ -347,6 +353,7 @@
 	 normally needs only one chain of signatures to validate
 	 a target key okay. (But this may be adjusted with the help
 	 of some options).
+
     This information is confidential because it gives your personal
     opinion on the trustworthiness of someone else.  Therefore this data
     is not stored in the keyring but in the "trustdb"
@@ -429,14 +436,6 @@
 
 	"<heinrichh@uni-duesseldorf.de>"
 
-    * By word match
-
-	"+Heinrich Heine duesseldorf"
-
-      All words must match exactly (not case sensitive) and appear in
-      any order in the user ID.  Words are any sequences of letters,
-      digits, the underscore and characters with bit 7 set.
-
     * Or by the usual substring:
 
 	"Heine"
@@ -467,13 +466,13 @@
     detailed information about the errors.
 
 
-    Configure options 
+    Configure options
     -----------------
 
-    Here is a list of configure options which are sometime useful 
+    Here is a list of configure options which are sometime useful
     for installation.
 
-    --enable-static-rnd=<name> 
+    --enable-static-rnd=<name>
                      Force the use of the random byte gathering
 		     module <name>.  Default is either to use /dev/random
 		     or the auto mode.  Value for name:
@@ -485,9 +484,9 @@
 		     linux - Use the module which accesses /dev/random.
 			     This is the first choice and the default one
 			     for GNU/Linux or *BSD.
-                      auto - Compile linux, egd and unix in and 
+                      auto - Compile linux, egd and unix in and
                              automagically select at runtime.
-  
+
      --with-egd-socket=<name>
                      This is only used when EGD is used as random
                      gatherer. GnuPG uses by default "~/.gnupg/entropy"
@@ -497,13 +496,13 @@
                      "~/" uses the socket in the home directory of the user
                      and one starting with a "=" uses a socket in the
                      GnuPG home directory which is "~/.gnupg" by default.
- 
+
      --without-readline
                      Do not include support for the readline library
                      even if it is available.  The default is to check
                      whether the readline library is a available and
                      use it to allow fancy command line editing.
-  
+
      --with-included-zlib
                      Forces usage of the local zlib sources. Default is
 		     to use the (shared) library of the system.
@@ -530,15 +529,15 @@
                      (e.g. SunOS 5.7 on UltraSparc-2) and might give
                      you a bus error.
 
-     --disable-dynload 
+     --disable-dynload
                     If you have problems with dynamic loading, this
                     option disables all dynamic loading stuff.  Note
                     that the use of dynamic linking is very limited.
 
      --disable-asm
-                    Do not use assembler modules.  It is not possible 
+                    Do not use assembler modules.  It is not possible
                     to use this on some CPU types.
-                    
+
      --disable-exec
                     Disable all remote program execution.  This
 		    disables photo ID viewing as well as all keyserver
@@ -595,14 +594,14 @@
 		    --disable-cast5, --disable-blowfish,
 		    --disable-aes, --disable-twofish,
 		    --disable-sha256, --disable-sha512,
-		    --without-bzip2, --disable-exec, 
+		    --without-bzip2, --disable-exec,
                     --disable-card-support and
 		    --disable-agent-support.
                     Configure command lines are read from left to
 		    right, so if you want to have an "almost minimal"
 		    configuration, you can do (for example)
 		    "--enable-minimal --enable-rsa" to have RSA added
-		    to the minimal build.  Adding the option 
+		    to the minimal build.  Adding the option
                     --disable-nls may be useful too.
 
      --enable-key-cache=SIZE
@@ -623,10 +622,10 @@
 
      --enable-selinux-support
                     This prevents access to certain files and won't
-                    allow import or export of secret keys. 
+                    allow import or export of secret keys.
 
      --enable-noexecstack
-                    Pass option --noexecstack to as.  Autdetect wether
+                    Pass option --noexecstack to as.  Autodetect wether
                     the tool chain actually support this.
 
      --disable-gnupg-iconv
@@ -719,7 +718,7 @@
 
     Random devices are available in Linux, FreeBSD and OpenBSD.
     Operating systems without a random devices must use another
-    entropy collector. 
+    entropy collector.
 
     This collector works by running a lot of commands that yield more
     or less unpredictable output and feds this as entropy into the
@@ -764,27 +763,32 @@
     Apple like curl, zip, and BZ2) are universal.
 
 
-    GnuPG 1.4 and GnuPG 2.0
+    GnuPG 1.4 and GnuPG 2.x
     -----------------------
 
-    GnuPG 2.0 is a newer version of GnuPG with additional support for
+    GnuPG 2.x is a newer version of GnuPG with additional support for
     S/MIME.  It has a different design philosophy that splits
     functionality up into several modules.  Both versions may be
-    installed simultaneously without any conflict (gpg is called gpg2
-    in GnuPG 2).  In fact, the gpg version from GnuPG 1.4 is able to
-    make use of the gpg-agent as included in GnuPG 2 and allows for
-    seamless passphrase caching.  The advantage of GnupG 1.4 is its
-    smaller size and no dependency on other modules at run and build
-    time.
+    installed simultaneously without any conflict (gpg is usually
+    installed under the name gpg2 in GnuPG-2).  In fact, the GPG
+    version from GnuPG 1.4 is able to make use of the gpg-agent as
+    included in GnuPG-2 and allows for seamless passphrase caching.
+    The advantage of GnuPG 1.4 is its somewhat smaller size and no
+    dependency on other modules at run and build time.  The drawback
+    of 1.4 is its much older code base and that only minimal
+    maintainance is done.  It is highly suggested to switch to 2.x
+    unless your system is not supported by 2.x.
 
 
     How to Get More Information
     ---------------------------
 
-    The primary WWW page is "http://www.gnupg.org"
-    The primary FTP site is "ftp://ftp.gnupg.org/gcrypt/"
+    The primary WWW page is https://www.gnupg.org
+               or using TOR http://ic6au7wa3f6naxjq.onion
 
-    See http://www.gnupg.org/download/mirrors.html for a list of
+    The primary FTP site is ftp://ftp.gnupg.org/gcrypt/
+
+    See https://www.gnupg.org/download/mirrors.html for a list of
     mirrors and use them if possible.  You may also find GnuPG
     mirrored on some of the regular GNU mirrors.
 
@@ -811,7 +815,7 @@
     of "subscribe" to x-request@gnupg.org, where x is the name of the
     mailing list (gnupg-announce, gnupg-users, etc.).  An archive of
     the mailing lists are available at
-    http://www.gnupg.org/documentation/mailing-lists.html
+    https://www.gnupg.org/documentation/mailing-lists.html
 
     Please direct bug reports to http://bugs.gnupg.org or post
     them direct to the mailing list <gnupg-devel@gnupg.org>.
@@ -819,9 +823,13 @@
     Please direct questions about GnuPG to the users mailing list or
     one of the pgp newsgroups; please do not direct questions to one
     of the authors directly as we are busy working on improvements and
-    bug fixes.  The English and German mailing lists are watched by
-    the authors and we try to answer questions when time allows us to
-    do so.
+    bug fixes.  The English and German GnuPG mailing lists are watched
+    by the authors and we try to answer questions when time allows us
+    to do so.
 
-    Commercial grade support for GnuPG is available; please see
-    http://www.gnupg.org/service.html .
+    Commercial grade support for GnuPG is available; for a listing of
+    offers see https://www.gnupg.org/service.html .  Maintaining and
+    improving GnuPG is costly.  Since 2001, g10 Code GmbH, a German
+    company owned and headed by GnuPG's principal author Werner Koch,
+    is bearing the majority of these costs.  To help them carry on
+    this work, they need your support.  See https://gnupg.org/donate/

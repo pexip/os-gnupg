@@ -75,7 +75,7 @@ progress_cb ( void *ctx, int c )
 }
 
 static const char *
-get_status_string ( int no ) 
+get_status_string ( int no )
 {
   const char *s;
 
@@ -91,7 +91,6 @@ get_status_string ( int no )
     case STATUS_BADSIG : s = "BADSIG"; break;
     case STATUS_ERRSIG : s = "ERRSIG"; break;
     case STATUS_BADARMOR : s = "BADARMOR"; break;
-    case STATUS_RSA_OR_IDEA : s= "RSA_OR_IDEA"; break;
     case STATUS_TRUST_UNDEFINED: s = "TRUST_UNDEFINED"; break;
     case STATUS_TRUST_NEVER	 : s = "TRUST_NEVER"; break;
     case STATUS_TRUST_MARGINAL : s = "TRUST_MARGINAL"; break;
@@ -165,6 +164,7 @@ get_status_string ( int no )
     case STATUS_PKA_TRUST_GOOD : s = "PKA_TRUST_GOOD"; break;
     case STATUS_BEGIN_SIGNING  : s = "BEGIN_SIGNING"; break;
     case STATUS_ERROR          : s = "ERROR"; break;
+    case STATUS_DECRYPTION_INFO: s = "DECRYPTION_INFO"; break;
     default: s = "?"; break;
     }
   return s;
@@ -187,13 +187,13 @@ status_currently_allowed (int no)
      prompt the user. */
   switch (no)
     {
-    case STATUS_GET_BOOL:	 
-    case STATUS_GET_LINE:	 
-    case STATUS_GET_HIDDEN:	 
-    case STATUS_GOT_IT:	 
+    case STATUS_GET_BOOL:
+    case STATUS_GET_LINE:
+    case STATUS_GET_HIDDEN:
+    case STATUS_GOT_IT:
     case STATUS_IMPORTED:
-    case STATUS_IMPORT_OK:	
-    case STATUS_IMPORT_CHECK:  
+    case STATUS_IMPORT_OK:
+    case STATUS_IMPORT_CHECK:
     case STATUS_IMPORT_RES:
       return 1; /* Yes. */
     default:
@@ -214,7 +214,7 @@ set_status_fd ( int fd )
     if ( statusfp && statusfp != stdout && statusfp != stderr )
         fclose (statusfp);
     statusfp = NULL;
-    if ( fd == -1 ) 
+    if ( fd == -1 )
         return;
 
     if( fd == 1 )
@@ -260,7 +260,7 @@ write_status_text ( int no, const char *text)
                 fputs ( "\\n", statusfp );
             else if (*text == '\r')
                 fputs ( "\\r", statusfp );
-            else 
+            else
                 putc ( *(const byte *)text,  statusfp );
         }
     }
@@ -287,7 +287,7 @@ write_status_text_and_buffer ( int no, const char *string,
 
     if( !statusfp || !status_currently_allowed (no) )
 	return;  /* Not enabled or allowed. */
-    
+
     if (wrap == -1) {
         lower_limit--;
         wrap = 0;
@@ -306,8 +306,8 @@ write_status_text_and_buffer ( int no, const char *string,
             first = 0;
         }
         for (esc=0, s=buffer, n=len; n && !esc; s++, n-- ) {
-            if ( *s == '%' || *(const byte*)s <= lower_limit 
-                           || *(const byte*)s == 127 ) 
+            if ( *s == '%' || *(const byte*)s <= lower_limit
+                           || *(const byte*)s == 127 )
                 esc = 1;
             if ( wrap && ++count > wrap ) {
                 dowrap=1;
@@ -317,7 +317,7 @@ write_status_text_and_buffer ( int no, const char *string,
         if (esc) {
             s--; n++;
         }
-        if (s != buffer) 
+        if (s != buffer)
             fwrite (buffer, s-buffer, 1, statusfp );
         if ( esc ) {
             fprintf (statusfp, "%%%02X", *(const byte*)s );
@@ -535,7 +535,7 @@ myread(int fd, void *buf, size_t count)
             raise (SIGHUP); /* no more input data */
 #endif
         }
-    }    
+    }
     return rc;
 }
 

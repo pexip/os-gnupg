@@ -1,134 +1,245 @@
-gnupg (1.4.11-3ubuntu2.10) precise-security; urgency=medium
+gnupg (1.4.18-7+deb8u2) jessie-security; urgency=high
 
-  * SECURITY UPDATE: random number generator prediction
-    - debian/patches/CVE-2016-6313.dpatch: improve readability by using a
-      macro and hash continuous areas in the csprng pool in
-      cipher/random.c.
-    - CVE-2016-6313
+  * Non-maintainer upload by the Security Team.
+  * cipher: Improve readability by using a macro
+  * random: Hash continuous areas in the csprng pool (CVE-2016-6313)
 
- -- Marc Deslauriers <marc.deslauriers@ubuntu.com>  Wed, 17 Aug 2016 13:37:00 -0400
+ -- Salvatore Bonaccorso <carnil@debian.org>  Wed, 17 Aug 2016 21:36:04 +0200
 
-gnupg (1.4.11-3ubuntu2.9) precise-security; urgency=medium
+gnupg (1.4.18-7+deb8u1) stable; urgency=medium
 
-  * Screen responses from keyservers (LP: #1409117)
-    - d/p/0001-Screen-keyserver-responses.dpatch
-    - d/p/0002-Make-screening-of-keyserver-result-work-with-multi-k.dpatch
-    - d/p/0003-Add-kbnode_t-for-easier-backporting.dpatch
-    - d/p/0004-gpg-Fix-regression-due-to-the-keyserver-import-filte.dpatch
-  * Fix large key size regression from CVE-2014-5270 changes (LP: #1371766)
-    - d/p/Add-build-and-runtime-support-for-larger-RSA-key.dpatch
-    - debian/rules: build with --enable-large-secmem
-  * SECURITY UPDATE: sidechannel attack on Elgamal
-    - debian/patches/CVE-2014-3591.dpatch: use ciphertext blinding in
-      cipher/elgamal.c.
-    - CVE-2014-3591
-  * SECURITY UPDATE: sidechannel attack via timing variations in mpi_powm
-    - debian/patches/CVE-2015-0837.dpatch: avoid timing variations in
-      include/mpi.h, mpi/mpi-pow.c, mpi/mpiutil.c.
-    - CVE-2015-0837
-  * SECURITY UPDATE: invalid memory read via invalid keyring
-    - debian/patches/CVE-2015-1606.dpatch: skip all packets not allowed in
-      a keyring in g10/keyring.c.
-    - CVE-2015-1606
-  * SECURITY UPDATE: memcpy with overlapping ranges
-    - debian/patches/CVE-2015-1607.dpatch: use inline functions to convert
-      buffer data to scalars in g10/apdu.c, g10/app-openpgp.c,
-      g10/build-packet.c, g10/ccid-driver.c, g10/getkey.c, g10/keygen.c,
-      g10/keyid.c, g10/misc.c, g10/parse-packet.c, g10/tdbio.c,
-      g10/trustdb.c, include/host2net.h.
-    - CVE-2015-1607
+  [ Jonathan McDowell ]
+  * Import upstream bugfix for handling unknown subkey types (Closes: #787046)
 
- -- Marc Deslauriers <marc.deslauriers@ubuntu.com>  Fri, 27 Mar 2015 08:24:00 -0400
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Tue, 27 Oct 2015 15:39:42 -0400
 
-gnupg (1.4.11-3ubuntu2.7) precise-security; urgency=medium
+gnupg (1.4.18-7) unstable; urgency=medium
 
-  * SECURITY UPDATE: side-channel attack on Elgamal encryption subkeys
-    - debian/patches/CVE-2014-5270.dpatch: use sliding window method for
-      exponentiation algorithm in mpi/mpi-pow.c.
-    - CVE-2014-5270
+  * import a series of DoS and vulnerabilities from upstream, including
+    CVE-2014-3591
 
- -- Marc Deslauriers <marc.deslauriers@ubuntu.com>  Tue, 19 Aug 2014 09:41:45 -0400
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Mon, 02 Mar 2015 19:29:26 +0100
 
-gnupg (1.4.11-3ubuntu2.6) precise-security; urgency=medium
+gnupg (1.4.18-6) unstable; urgency=medium
 
-  * SECURITY UPDATE: denial of service via uncompressing garbled packets
-    - debian/patches/CVE-2014-4617.dpatch: limit number of extra bytes in
-      g10/compress.c.
-    - CVE-2014-4617
+  * revert to debhelper 7
+  * simplify upstream doc synchronization.
 
- -- Marc Deslauriers <marc.deslauriers@ubuntu.com>  Thu, 26 Jun 2014 08:30:14 -0400
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Thu, 04 Dec 2014 15:50:59 -0500
 
-gnupg (1.4.11-3ubuntu2.5) precise-security; urgency=low
+gnupg (1.4.18-5) unstable; urgency=medium
 
-  * SECURITY UPDATE: RSA Key Extraction via Low-Bandwidth Acoustic
-    Cryptanalysis attack
-    - debian/patches/CVE-2013-4576.dpatch: Use blinding for the RSA secret
-      operation in cipher/random.*, cipher/rsa.c, g10/gpgv.c. Normalize the
-      MPIs used as input to secret key functions in cipher/dsa.c,
-      cipher/elgamal.c, cipher/rsa.c.
-    - CVE-2013-4576
+  [ Daniel Kahn Gillmor ]
+  * move to debhelper 9
+  * add build and runtime support for larger RSA keys (Closes: #739424)
+  * fix runtime errors on bad input (Closes: #771987)
+  * deprecate insecure one-argument variant for gpg --verify of detached
+    signatures (Closes: #771992)
+  * sync documentation with upstream.
+  * Standards-Version: bump to 3.9.6 (no changes needed).
 
- -- Marc Deslauriers <marc.deslauriers@ubuntu.com>  Wed, 18 Dec 2013 11:17:02 -0500
+  [ David Prévot ]
+  * Update POT and PO files, and ensure the translations get rebuild
+  * Update French translation (Closes: #769571)
+  * Update Danish Translation, thanks to Joe Hansen
+  * Update Ukrainian translation, thanks to Yuri Chornoivan
+  * Update Russian translation, thanks to Ineiev
+  * Update Chinese (traditional) translation, thanks to Jedi Lin
+  * Update Italian translation, thanks to Milo Casagrande
+  * Update Polish translation, thanks to Jakub Bogusz
+  * Update Spanish translation, thanks to Manuel "Venturi" Porras Peralta
+    (Closes: #770726)
+  * Update Dutch translation, thanks to Frans Spiesschaert (Closes: #770816)
+  * Update Czech translation, thanks to Roman Pavlik
 
-gnupg (1.4.11-3ubuntu2.4) precise-security; urgency=low
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Thu, 04 Dec 2014 01:11:22 -0500
 
-  * SECURITY UPDATE: incorrect no-usage-permitted flag handling
-    - debian/patches/CVE-2013-4351.dpatch: correctly handle empty key flags
-      in g10/getkey.c, g10/keygen.c, include/cipher.h.
-    - CVE-2013-4351
-  * SECURITY UPDATE: denial of service via infinite recursion
-    - debian/patches/CVE-2013-4402.dpatch: set limits on number of filters
-      and nested packets in util/iobuf.c, g10/mainproc.c.
-    - CVE-2013-4402
+gnupg (1.4.18-4) unstable; urgency=medium
 
- -- Marc Deslauriers <marc.deslauriers@ubuntu.com>  Tue, 08 Oct 2013 07:49:58 -0400
+  * Remove Daniel Leidert from Uploaders at his request.
+  * fix typo in gpg.info (closes: #760288)
+  * Fix regression in keyserver filter (closes: #760392)
+  * added myself to uploaders
 
-gnupg (1.4.11-3ubuntu2.3) precise-security; urgency=low
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Tue, 02 Sep 2014 09:51:13 -0400
 
-  * SECURITY UPDATE: The path of execution in an exponentiation function may
-    depend upon secret key data, allowing a local attacker to determine the
-    contents of the secret key through a side-channel attack.
-    - debian/patches/CVE-2013-4242.dpatch: always perform the mpi_mul for
-      exponents in secure memory. Based on upstream patch.
-    - CVE-2013-4242
+gnupg (1.4.18-3) unstable; urgency=medium
 
- -- Seth Arnold <seth.arnold@canonical.com>  Tue, 30 Jul 2013 15:51:17 -0700
+  [ Eric Dorland ]
+  * debian/gbp.conf: Add git-buildpackage config and use pristine-tar.
+  * debian/control: Switch to git for VCS.
+  * debian/control: Add Eric Dorland to Uploaders.
+  * Run wrap-and-sort over the debian files.
+  
+  [ Daniel Kahn Gillmor ]
+  * check signatures on upstream tarballs (closes: #711744).
 
-gnupg (1.4.11-3ubuntu2.2) precise-security; urgency=low
+  [ Thijs Kinkhorst ]
+  * Document possible license of doc/OpenPGP (closes: #745408). 
 
-  * SECURITY UPDATE: keyring corruption via malformed key import
-    - debian/patches/CVE-2012-6085.dpatch: validate PKTTYPE in g10/import.c.
-    - CVE-2012-6085
+ -- Eric Dorland <eric@debian.org>  Tue, 02 Sep 2014 00:04:20 -0400
 
- -- Marc Deslauriers <marc.deslauriers@ubuntu.com>  Tue, 08 Jan 2013 10:52:55 -0500
+gnupg (1.4.18-2) unstable; urgency=medium
 
-gnupg (1.4.11-3ubuntu2.1) precise-security; urgency=low
+  [ Cyril Brulebois ]
+  * Fix gpgv-udeb by adding --enable-sha256, which is needed to validate
+    Release files. (Closes: 753985).
+  * Run the check target in the udeb build directory.
 
-  * debian/patches/long-keyids.dpatch: Use the longest key ID available
-    when requesting a key from a key server.
+ -- Thijs Kinkhorst <thijs@debian.org>  Mon, 07 Jul 2014 19:55:02 +0200
 
- -- Marc Deslauriers <marc.deslauriers@ubuntu.com>  Tue, 14 Aug 2012 08:34:24 -0400
+gnupg (1.4.18-1) unstable; urgency=medium
 
-gnupg (1.4.11-3ubuntu2) precise; urgency=low
+  * New upstream release.
+    - Drops obsolete Russian manpage (closes: #737033).
+  * Add parcimonie to Suggests (closes: #752260).
+  * Build udebs with --enable-minimal.
 
-  * Mark gnupg, gnupg-curl, and gpgv Multi-Arch: foreign.
+ -- Thijs Kinkhorst <thijs@debian.org>  Mon, 30 Jun 2014 21:55:10 +0200
 
- -- Colin Watson <cjwatson@ubuntu.com>  Mon, 21 Nov 2011 13:42:07 +0000
+gnupg (1.4.16-1.2) unstable; urgency=high
 
-gnupg (1.4.11-3ubuntu1) natty; urgency=low
+  * Non-maintainer upload with maintainers approval.
+  * CVE-2014-4617: Avoid DoS due to garbled compressed data packets.
+    Apply upstream commit to stop a possible DoS using garbled compressed
+    data packets which can be used to put gpg into an infinite loop.
+    (Closes: #752497)
 
-  * Resynchronise with Debian (LP: #720905).  Remaining changes:
-    - Disable mlock() test since it fails with ulimit 0 (on buildds).
-    - Set gpg (or gpg2) and gpgsm to use a passphrase agent by default.
-    - Fix udeb build failure on powerpc, building with -O2 instead of -Os.
-    - Only suggest gnupg-curl and libldap; recommendations are pulled into
-      minimal, and we don't need the keyserver utilities in a minimal Ubuntu
-      system.
-  * debian/{control,rules}: Remove the Win32 build (and mingw32
-    build-dependency), since mingw32 is in universe, and will remain so for
-    the forseeable future.
+ -- Salvatore Bonaccorso <carnil@debian.org>  Tue, 24 Jun 2014 17:02:35 +0200
 
- -- Rico Tzschichholz <ricotz@ubuntu.com>  Tue, 22 Feb 2011 11:00:25 +0100
+gnupg (1.4.16-1.1) unstable; urgency=low
+
+  * Non-Maintainer Upload.
+  * Initialize trustdb before clearing it (Closes: #735363)
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Mon, 20 Jan 2014 22:16:55 -0500
+
+gnupg (1.4.16-1) unstable; urgency=medium
+
+  * New upstream release.
+    - Obsoletes patches CVE-2013-4576 and revert_trustdb_changes.
+    - Fixes build failure on mips64 (closes: #719053).
+  * Update debian/copyright: copyright no longer assigned to FSF.
+  * Add udev rule for SCM331-LC1 / SCR3310 (LP: #1076987).
+
+ -- Thijs Kinkhorst <thijs@debian.org>  Tue, 07 Jan 2014 09:40:14 +0100
+
+gnupg (1.4.15-3) unstable; urgency=high
+
+  * Actually apply patch for CVE-2013-4576 (closes: #732705).
+    Thanks Marc Deslauriers for reporting.
+
+ -- Thijs Kinkhorst <thijs@debian.org>  Fri, 20 Dec 2013 15:41:30 +0100
+
+gnupg (1.4.15-2) unstable; urgency=high
+
+  * Fixed the RSA Key Extraction via Low-Bandwidth Acoustic
+    Cryptanalysis attack as described by Genkin, Shamir, and Tromer.
+    See <http://www.cs.tau.ac.il/~tromer/acoustic/>. [CVE-2013-4576]
+  * Add two Gemalto card readers to udev rules (closes: #730872),
+    thanks Yves-Alexis Perez.
+  * Checked for policy 3.9.5, no changes.
+
+ -- Thijs Kinkhorst <thijs@debian.org>  Thu, 12 Dec 2013 20:34:27 +0100
+
+gnupg (1.4.15-1.1) unstable; urgency=high
+
+  * Non-maintainer upload, by request of Thijs Kinkhorst.
+  * Add patch revert_trustdb_changes:
+   - Revert upstream GIT a1a59e6a539e597996976d0afb6aa3062e954188
+     which breaks popularity-contest (closes: #725889).
+
+ -- Bill Allombert <ballombe@debian.org>  Wed, 16 Oct 2013 13:02:26 +0200
+
+gnupg (1.4.15-1) unstable; urgency=high
+
+  * New upstream release (closes: #725718).
+    - Fixed possible denial of service in the compressed packet
+      parser (CVE-2013-4402, closes: #725439).
+    - Documents limitations of the verify command (closes: #704645).
+
+ -- Thijs Kinkhorst <thijs@debian.org>  Mon, 07 Oct 2013 20:05:43 +0200
+
+gnupg (1.4.14-1) unstable; urgency=low
+
+  * New upstream release (closes: #717845).
+    - Adds IDEA support. Update package description.
+    - Fixes security issue: side channel attack on RSA.
+      (CVE-2013-4242, closes: #717880).
+    - Fixes list-keys hanging at ctrl-C (closes: #399904).
+  * Add more smartcard reader udev rules, thanks Niibe Yutaka
+    (closes: #691392).
+  * Checked for policy 3.9.4, no changes.
+
+ -- Thijs Kinkhorst <thijs@debian.org>  Thu, 25 Jul 2013 21:50:32 +0200
+
+gnupg (1.4.12-7) unstable; urgency=high
+
+  * Apply upstream patch to fix memory and key database corruption
+    when importing with invalid keys (CVE-2012-6085, closes: #697108).
+
+ -- Thijs Kinkhorst <thijs@debian.org>  Wed, 02 Jan 2013 19:48:36 +0100
+
+gnupg (1.4.12-6) unstable; urgency=low
+
+  * debian/patches/685627_french_translation_update.patch: Adjusted.
+    - po/gnupg.pot: Trigger .gmo rebuild by date update (closes: #685627).
+
+ -- Daniel Leidert <dleidert@debian.org>  Sun, 14 Oct 2012 12:11:18 +0200
+
+gnupg (1.4.12-5) unstable; urgency=low
+
+  [ Thijs Kinkhorst ]
+  * Add lintian override for gnupg-curl non-conflict.
+
+  [ Daniel Leidert ]
+  * debian/README.BUGS.Debian: Added note about gpg not returning an error
+    message if junk is given after --edit-key/--send-keys (closes: #630388).
+  * patches/685627_french_translation_update.patch: Added.
+    - po/fr.po: French translation proofread and updated (closes: #685627).
+
+ -- Thijs Kinkhorst <thijs@debian.org>  Mon, 09 Apr 2012 18:44:33 +0200
+
+gnupg (1.4.12-4) unstable; urgency=low
+
+  * Move mingw64 to B-D-I, adjust make targets. This helps debian-ports
+    architectures: mingw64 is not commonly available there.
+
+ -- Thijs Kinkhorst <thijs@debian.org>  Mon, 05 Mar 2012 23:20:34 +0100
+
+gnupg (1.4.12-3) unstable; urgency=low
+
+  * Upload to unstable.
+  * Correct path for gpgv-win32 to /usr/share/win32.
+  * Updated to policy 3.9.3.
+  * Convert to copyright-format 1.0.
+
+ -- Thijs Kinkhorst <thijs@debian.org>  Fri, 24 Feb 2012 09:25:20 +0100
+
+gnupg (1.4.12-2) experimental; urgency=low
+
+  * Move mingw-w64 from build-depends-indep to build-depends,
+    otherwise buildds won't install it (classic mistake).
+
+ -- Thijs Kinkhorst <thijs@debian.org>  Wed, 22 Feb 2012 20:12:47 +0000
+
+gnupg (1.4.12-1) experimental; urgency=low
+
+  * New upstream release.
+    - Documents keyid-format and with-colons combination (LP: #808295).
+    - No longer requires readline for gpgv (closes: #592902).
+    - Fixes man page format error for gpg-zip (closes: #606072).
+    - Fixes gpg manual page (closes: #640140).
+  * As we're now on 0 patches, and dpatch is supposedly obsoleted,
+    take the chance to switch to dpkg-source 3.0 (quilt) format.
+  * Several packaging tweaks to keep Lintian happy.
+  * Mark packages Multi-Arch: foreign. thanks Colin Watson (closes: #649490).
+  * Fix path to README.BUGS.Debian.gz in presubj (closes: #614962).
+  * Add Crypto Stick to udev rules (closes: #648332).
+  * Build win32 package with mingw-w64, thanks Stephen Kitt (closes: #623526).
+  * Enable hardened build flags, thanks Moritz Muehlenhoff (closes: #653480).
+
+ -- Thijs Kinkhorst <thijs@debian.org>  Mon, 20 Feb 2012 21:53:58 +0100
 
 gnupg (1.4.11-3) unstable; urgency=low
 
@@ -172,24 +283,6 @@ gnupg (1.4.11-1) experimental; urgency=low
 
  -- Thijs Kinkhorst <thijs@debian.org>  Tue, 26 Oct 2010 20:14:12 +0200
 
-gnupg (1.4.10-4ubuntu2) natty; urgency=low
-
-  * No-change rebuild to drop upstream changelog.
-
- -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 03 Dec 2010 08:31:25 +0100
-
-gnupg (1.4.10-4ubuntu1) natty; urgency=low
-
-  * Resynchronise with Debian.  Remaining changes:
-    - Disable mlock() test since it fails with ulimit 0 (on buildds).
-    - Set gpg (or gpg2) and gpgsm to use a passphrase agent by default.
-    - Fix udeb build failure on powerpc, building with -O2 instead of -Os.
-    - Only suggest gnupg-curl and libldap; recommendations are pulled into
-      minimal, and we don't need the keyserver utilities in a minimal Ubuntu
-      system.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Wed, 13 Oct 2010 11:48:06 +0100
-
 gnupg (1.4.10-4) unstable; urgency=high
 
   * debian/patches/mips_gcc4.4: added to fix build failure on
@@ -232,25 +325,6 @@ gnupg (1.4.10-3) unstable; urgency=low
   * Checked for policy 3.8.4, no changes.
 
  -- Thijs Kinkhorst <thijs@debian.org>  Mon, 22 Mar 2010 20:12:42 +0100
-
-gnupg (1.4.10-2ubuntu2) maverick; urgency=low
-
-  * Only suggest gnupg-curl and libldap; recommendations are pulled into
-    minimal, and we don't need the keyserver utilities in a minimal Ubuntu
-    system.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Mon, 14 Jun 2010 14:40:00 +0100
-
-gnupg (1.4.10-2ubuntu1) lucid; urgency=low
-
-  * Merge from Debian testing (lp: #503064, #477818). Remaining changes:
-    - Add 'debian/patches/50_disable_mlock_test.dpatch': Disable mlock() test
-      since it fails with ulimit 0 (on buildds).
-    - Add 'debian/patches/61_use_agent_default.dpatch': Patch to set gpg
-      (or gpg2) and gpgsm to use a passphrase agent by default (lp: 15485)
-    - Fix udeb build failure on powerpc, building with -O2 instead of -Os.
-
- -- Michael Bienia <geser@ubuntu.com>  Mon, 04 Jan 2010 20:06:01 +0100
 
 gnupg (1.4.10-2) unstable; urgency=low
 
@@ -356,64 +430,6 @@ gnupg (1.4.10~rc1-1) experimental; urgency=low
 
  -- Thijs Kinkhorst <thijs@debian.org>  Sat, 15 Aug 2009 18:43:03 +0200
 
-gnupg (1.4.9-4ubuntu7) karmic; urgency=low
-
-  * Fix udeb build failure on powerpc, building with -O2 instead of -Os.
-
- -- Matthias Klose <doko@ubuntu.com>  Sun, 27 Sep 2009 13:49:46 +0200
-
-gnupg (1.4.9-4ubuntu6) karmic; urgency=low
-
-  * Build-depend on libreadline-dev instead of libreadline5-dev.
-
- -- Matthias Klose <doko@ubuntu.com>  Sat, 19 Sep 2009 22:52:53 +0200
-
-gnupg (1.4.9-4ubuntu5) karmic; urgency=low
-
-  * debian/gnupg.udev:
-    Add udev rules to set ACLs on SCM smartcard readers. They replace the hal
-    rules for the same purpose. (LP: #57755)
-  * debian/rules:
-    Call dh_installudev.
-
- -- Michael Bienia <geser@ubuntu.com>  Fri, 03 Jul 2009 15:38:40 +0200
-
-gnupg (1.4.9-4ubuntu4) karmic; urgency=low
-
-  * Undo the last change. A GnuPG bug with handling multiple keyservers
-    makes this break
-
- -- Mackenzie Morgan <maco.m@ubuntu.com>  Sat, 20 Jun 2009 18:04:47 -0400
-
-gnupg (1.4.9-4ubuntu3) karmic; urgency=low
-
-  * deian/patches/100_ubuntu_default_keyserver.dpatch: (LP: #380093)
-    - Add keyserver.ubuntu.com as a default keyserver in g10/options.skel
-
- -- Mackenzie Morgan <maco.m@ubuntu.com>  Mon, 25 May 2009 13:10:51 -0400
-
-gnupg (1.4.9-4ubuntu2) karmic; urgency=low
-
-  * debian/rules: add --enable-noexecstack to configure to avoid needless
-    executable stacks on i386 (LP: #49323, debian bug 527630).
-  * debian/rules: fix "nocheck" logic to run tests (debian bug 521884).
-
- -- Kees Cook <kees@ubuntu.com>  Fri, 08 May 2009 09:12:18 -0700
-
-gnupg (1.4.9-4ubuntu1) karmic; urgency=low
-
-  * Merge from debian unstable, remaining changes:
-    - Add 'debian/patches/50_disable_mlock_test.dpatch': Disable mlock() test
-      since it fails with ulimit 0 (on buildds).
-    - Add 'debian/patches/61_use_agent_default.dpatch': Patch to set gpg
-      (or gpg2) and gpgsm to use a passphrase agent by default (lp: 15485)
-    - Add libcurl4-gnutls-dev to Build-Depends to fix gpg running into a
-      timeout updating the keyring (lp: 62864)
-    - Add 'debian/patches/55_curl_typefix.dpatch': Fix a build error with recent
-      curl and gcc 4.3 
-
- -- Nicolas Valcárcel Scerpella <nvalcarcel@canonical.com>  Tue, 05 May 2009 16:02:14 -0500
-
 gnupg (1.4.9-4) unstable; urgency=low
 
   [ Daniel Leidert (dale) ]
@@ -439,24 +455,6 @@ gnupg (1.4.9-4) unstable; urgency=low
   * Rephrase description on the subject of IDEA (Closes: #509853).
 
  -- Thijs Kinkhorst <thijs@debian.org>  Mon, 16 Feb 2009 18:35:15 +0100
-
-gnupg (1.4.9-3ubuntu1) intrepid; urgency=low
-
-  * Merge from debian unstable (lp: #225005), remaining changes:
-    - Add 'debian/patches/50_disable_mlock_test.dpatch': Disable mlock() test
-      since it fails with ulimit 0 (on buildds).
-    - Add 'debian/patches/61_use_agent_default.dpatch': Patch to set gpg
-      (or gpg2) and gpgsm to use a passphrase agent by default (lp: 15485)
-    - Add libcurl4-gnutls-dev to Build-Depends to fix gpg running into a
-      timeout updating the keyring (lp: 62864)
-  * Dropped Ubuntu patches, applied upstream:
-    - 50_show_primary_only.dpatch
-    - 60_install_options_skel.dpatch
-  * Add 'debian/patches/55_curl_typefix.dpatch': Fix a build error with recent
-    curl and gcc 4.3 (lp: #247679). Patch taken from upstream:
-    http://lists.gnupg.org/pipermail/gnupg-devel/2008-April/024344.html
-
- -- Michael Bienia <geser@ubuntu.com>  Mon, 21 Jul 2008 02:02:14 +0200
 
 gnupg (1.4.9-3) unstable; urgency=low
 
@@ -550,56 +548,6 @@ gnupg (1.4.6-2.1) unstable; urgency=low
 
  -- Bastian Blank <waldi@debian.org>  Sat, 23 Feb 2008 19:59:18 +0100
 
-gnupg (1.4.6-2ubuntu5) hardy; urgency=low
-
-  * No-change rebuild against libldap-2.4-2.
-
- -- Steve Langasek <steve.langasek@ubuntu.com>  Wed, 23 Jan 2008 10:49:38 +0000
-
-gnupg (1.4.6-2ubuntu4) gutsy; urgency=low
-
-  * debian/patches/70_trust_error.dpatch: Removed as it broke setting the
-    trust level to 1 (LP: #147343).
-
- -- Michael Bienia <geser@ubuntu.com>  Mon, 01 Oct 2007 21:52:52 +0200
-
-gnupg (1.4.6-2ubuntu3) gutsy; urgency=low
-
-  [ Scott Kitterman ]
-  * Add 'debian/patches/60_install_options_skel.dpatch': Patch to
-    install options file from upstream (LP: #76983)
-  * Add 'debian/patches/61_use_agent_default.dpatch': Patch to set gpg
-    (or gpg2) and gpgsm to use a passphrase agent by default (LP: #15485)
-  * Add 'debian/patches/70_trust_error.dpatch': Patch to disallow illegal
-    zero response for trust level changes (LP: #39459)
-
-  [ Michael Bienia ]
-  * Add libcurl4-gnutls-dev to Build-Depends to fix gpg running into a timeout
-    updating the keyring (LP: #62864)
-
- -- Michael Bienia <geser@ubuntu.com>  Fri, 06 Jul 2007 20:56:05 +0200
-
-gnupg (1.4.6-2ubuntu2) gutsy; urgency=low
-
-  * Add 'debian/patches/50_show_primary_only.dpatch': add
-    'show-primary-uid-only' to verify options, to suppress 'aka' output
-    in key verifications, backported from 1.4.7 upstream.
-
- -- Kees Cook <kees@ubuntu.com>  Tue, 15 May 2007 12:09:41 -0700
-
-gnupg (1.4.6-2ubuntu1) gutsy; urgency=low
-
-  * Merge from debian unstable, remaining changes:
-    - config.h.in: Disable mlock() test since it fails with ulimit 0 (on
-      buildds).
-    - debian/rules:
-      + Do not install gpg as suid root, since that is not necessary with
-        kernels 2.6.8+.
-      + Make the build fail if the test suite fails.
-    - debian/control: Maintainer field update.
-
- -- Kees Cook <kees@ubuntu.com>  Tue, 08 May 2007 02:21:26 -0700
-
 gnupg (1.4.6-2) unstable; urgency=medium
 
   * 28_multiple_message.dpatch: new patch from upstream to fix problems
@@ -607,28 +555,6 @@ gnupg (1.4.6-2) unstable; urgency=medium
     components. [CVE-2007-1263]
 
  -- James Troup <james@nocrew.org>  Wed,  7 Mar 2007 21:47:35 +0000
-
-gnupg (1.4.6-1ubuntu2) feisty; urgency=low
-
-  * SECURITY UPDATE: without --status-fd, forged inline sigs can appear valid.
-  * debian/patches/50_stop_multiple_messages.dpatch: upstream patch.
-  * References
-    ftp://ftp.gnupg.org/gcrypt/gnupg/patches/gnupg-1.4.6-multiple-message.patch
-    CVE-2007-1263
-
- -- Kees Cook <kees@ubuntu.com>  Wed,  7 Mar 2007 11:53:20 -0800
-
-gnupg (1.4.6-1ubuntu1) feisty; urgency=low
-
-  * Merge from debian unstable, remaining changes:
-    - config.h.in: Disable mlock() test since it fails with ulimit 0 (on
-      buildds).
-    - debian/rules:
-      + Do not install gpg as suid root, since that is not necessary with
-        kernels 2.6.8+.
-      + Make the build fail if the test suite fails.
-
- -- Kees Cook <kees@ubuntu.com>  Tue, 12 Dec 2006 15:56:56 -0800
 
 gnupg (1.4.6-1) unstable; urgency=high
 
@@ -648,47 +574,12 @@ gnupg (1.4.6-1) unstable; urgency=high
 
  -- James Troup <james@nocrew.org>  Thu,  7 Dec 2006 02:54:51 +0000
 
-gnupg (1.4.5-3ubuntu2) feisty; urgency=low
-
-  * SECURITY UPDATE: unwound stack data use, leading to arbitrary code
-    execution.
-  * Add debian/patches/29_dxf_context_stack.dpatch: upstream patch, use heap
-    for allocation instead.
-  * References
-    CVE-2006-6235
-
- -- Kees Cook <kees@ubuntu.com>  Wed,  6 Dec 2006 11:46:44 -0800
-
-gnupg (1.4.5-3ubuntu1) feisty; urgency=low
-
-  * Merge to Debian unstable. Remaining Ubuntu changes:
-    - config.h.in: Disable mlock() test since it fails with ulimit 0 (on
-      buildds).
-    - debian/rules:
-      + Do not install gpg as suid root, since that is not necessary with
-        kernels 2.6.8+.
-      + Make the build fail if the test suite fails.
-
- -- Martin Pitt <martin.pitt@ubuntu.com>  Tue, 28 Nov 2006 19:06:47 +0100
-
 gnupg (1.4.5-3) unstable; urgency=high
 
   * 27_filename_overflow.dpatch: new patch from upstream to fix buffer
     overflow in ask_outfile_name(). [CVE-2006-6169]
 
  -- James Troup <james@nocrew.org>  Mon, 27 Nov 2006 21:23:37 +0000
-
-gnupg (1.4.5-2ubuntu1) feisty; urgency=low
-
-  * Merge to Debian unstable. Remaining Ubuntu changes:
-    - config.h.in: Disable mlock() test since it fails with ulimit 0 (on
-      buildds).
-    - debian/rules:
-      + Do not install gpg as suid root, since that is not necessary with
-        kernels 2.6.8+.
-      + Make the build fail if the test suite fails.
-
- -- Martin Pitt <martin.pitt@ubuntu.com>  Fri,  3 Nov 2006 09:18:26 +0100
 
 gnupg (1.4.5-2) unstable; urgency=low
 
@@ -712,42 +603,6 @@ gnupg (1.4.5-1) unstable; urgency=low
   * debian/control (Standards-Version): bump to 3.7.2.1.
 
  -- James Troup <james@nocrew.org>  Tue,  1 Aug 2006 22:50:09 +0100
-
-gnupg (1.4.3-2ubuntu3) edgy; urgency=low
-
-  * SECURITY UPDATE: Local arbitrary code execution.
-  * Add debian/patches/27_comment_control_overflow.dpatch:
-    - Fix buffer overflows in parse_comment() and parse_gpg_control().
-    - Patch extracted from stable 1.4.5 release.
-    - Reproducer:
-      perl -e 'print "\xfd\xff\xff\xff\xff\xfe"'| gpg --no-armor
-    - Credit: Evgeny Legerov
-    - CVE-2006-3746
-
- -- Martin Pitt <martin.pitt@ubuntu.com>  Thu,  3 Aug 2006 08:11:46 +0200
-
-gnupg (1.4.3-2ubuntu2) edgy; urgency=low
-
-  * Rebuild with current zlib1g-dev to fix udeb shlibdeps. Thanks to Evan
-    Dandrea for noticing.
-
- -- Colin Watson <cjwatson@ubuntu.com>  Mon, 31 Jul 2006 11:21:55 +0100
-
-gnupg (1.4.3-2ubuntu1) edgy; urgency=low
-
-  * Sync with Debian:
-    Remaining Ubuntu changes:
-    + config.h.in: Disable mlock() test since it fails with ulimit 0 (on
-      buildds).
-    + debian/patches/20_no_tty_fix.dpatch:
-      - dropped, upstream now
-    + debian/rules:
-      - don't use the included gettext
-      - Don't install gpg as suid root, since that is not necessary with
-        kernels 2.6.8+
-      - Make the build fail if the test suite fails
-
- -- Sebastian Dröge <slomo@ubuntu.com>  Wed, 28 Jun 2006 21:11:14 +0200
 
 gnupg (1.4.3-2) unstable; urgency=low
 
@@ -814,32 +669,6 @@ gnupg (1.4.3-1) unstable; urgency=low
 
  -- James Troup <james@nocrew.org>  Wed,  5 Apr 2006 02:45:56 +0100
 
-gnupg (1.4.2.2-1ubuntu2) dapper; urgency=low
-
-  * debian/rules: 
-    - Remove --with-included-gettext configure option; use libc's gettext to
-      get language pack support. Closes: LP#25609
-    - rm'ing locale.alias is not necessary with this change, so change it to
-      rm -f to not break the build.
-
- -- Martin Pitt <martin.pitt@ubuntu.com>  Mon,  3 Apr 2006 18:21:19 +0200
-
-gnupg (1.4.2.2-1ubuntu1) dapper; urgency=low
-
-  * Resynchronize with Debian, UVF exception approved by Matt. 1.4.2.2 only
-    contains a security fix, updated test cases, and updated translations.
-  * For reference and to ease future merges, these are the remaining Ubuntu
-    changes:
-    - debian/rules: Make the build fail if the test suite fails.
-    - debian/changelog: Add missing CVE number.
-    - Don't install gpg as suid root, since that is not necessary with kernels
-      2.6.8+.
-    - config.h.in: Disable mlock() test since it fails with ulimit 0 (on
-      buildds).
-    - debian/patches/20_no_tty_fix.dpatch: Malone #5570
-
- -- Martin Pitt <martin.pitt@ubuntu.com>  Mon, 13 Mar 2006 12:42:00 +0100
-
 gnupg (1.4.2.2-1) unstable; urgency=low
 
   * New upstream release.
@@ -847,41 +676,6 @@ gnupg (1.4.2.2-1) unstable; urgency=low
      [CVE-2006-0049]
 
  -- James Troup <james@nocrew.org>  Fri, 10 Mar 2006 04:27:12 +0000
-
-gnupg (1.4.2.1-0ubuntu1) dapper; urgency=low
-
-  * New upstream security bugfix release, only contains the following changes:
-    - Security fix for a verification weakness in gpgv.  Some input
-      could lead to gpgv exiting with 0 even if the detached signature
-      file did not carry any signature.  This is not as fatal as it
-      might seem because the suggestion as always been not to rely on
-      th exit code but to parse the --status-fd messages.  However it
-      is likely that gpgv is used in that simplified way and thus we
-      do this release.  Same problem with "gpg --verify" but nobody
-      should have used this for signature verification without
-      checking the status codes anyway. [CVE-2006-0455]
-    - Added a test case for above vulnerability.
-  * debian/rules: Call the test suite during build. (Will fail the build
-    if the test suite fails.)
-
- -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 17 Feb 2006 11:18:27 +0100
-
-gnupg (1.4.2-2ubuntu2) dapper; urgency=low
-
-  * Add 20_no_tty_fix.dpatch:
-    - Do not open /dev/tty if --no-tty is specified, since this breaks
-      programs like seahorse.
-    - Patch also accepted upstream.
-    - Thanks to Ryan Lortie <desrt@desrt.ca> for the patch.
-    - Malone #5570
-
- -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 16 Dec 2005 16:57:39 +0100
-
-gnupg (1.4.2-2ubuntu1) dapper; urgency=low
-
-  * Resynchronise with Debian.
-
- -- Martin Pitt <martin.pitt@ubuntu.com>  Thu, 10 Nov 2005 16:13:10 -0500
 
 gnupg (1.4.2-2) unstable; urgency=low
 
@@ -902,20 +696,6 @@ gnupg (1.4.2-1) unstable; urgency=low
 
  -- James Troup <james@nocrew.org>  Sat, 24 Sep 2005 03:31:37 +0100
 
-gnupg (1.4.1-1ubuntu2) dapper; urgency=low
-
-  * debian/rules: Stop calling pkgstriptranslations, we now get it
-    for free with the new and improved dpkg-deb diversion hack.
-
- -- Adam Conrad <adconrad@ubuntu.com>  Wed, 26 Oct 2005 10:42:17 +1000
-
-gnupg (1.4.1-1ubuntu1) breezy; urgency=low
-
-  * Resynchronise with Debian, fixing changelog ordering.
-  * Added CAN number to previous changelog entry.
-
- -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 10 Jun 2005 10:36:38 +0200
-
 gnupg (1.4.1-1) unstable; urgency=low
 
   * New upstream release.  Closes: #307203
@@ -928,12 +708,6 @@ gnupg (1.4.1-1) unstable; urgency=low
     (clean): likewise, don't remove po/ca.gmo.
 
  -- James Troup <james@nocrew.org>  Mon,  9 May 2005 23:41:50 +0100
-
-gnupg (1.4.0-3ubuntu1) breezy; urgency=low
-
-  * Merge Debian changes (#9358).
-
- -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 15 Apr 2005 09:35:41 +0200
 
 gnupg (1.4.0-3) unstable; urgency=low
 
@@ -994,41 +768,6 @@ gnupg (1.2.5-3.1) UNOFFICIAL; urgency=low
     debian-installer.
 
  -- Colin Watson <cjwatson@debian.org>  Fri, 24 Dec 2004 13:42:23 +0000
-
-gnupg (1.2.5-3ubuntu5) hoary; urgency=low
-
-  * debian/rules: Call pkgstriptranslations if present (the package does not
-    use debhelper, thus it does not happen automatically).
-
- -- Martin Pitt <martin.pitt@ubuntu.com>  Fri, 18 Mar 2005 13:04:50 +0000
-
-gnupg (1.2.5-3ubuntu4) hoary; urgency=low
-
-  * debian/control, debian/rules: Build gpgv-udeb, containing just
-    /usr/bin/gpgv built without bzip2 support and with -Os, for use in the
-    installer.
-
- -- Colin Watson <cjwatson@canonical.com>  Wed, 12 Jan 2005 14:52:51 +0000
-
-gnupg (1.2.5-3ubuntu3) hoary; urgency=low
-
-  * Disable HAVE_BROKEN_MLOCK, since the test fails if ulimit -l 0.
-
- -- LaMont Jones <lamont@canonical.com>  Tue, 30 Nov 2004 22:35:20 -0700
-
-gnupg (1.2.5-3ubuntu2) hoary; urgency=low
-
-  * No-change upload to get mlock test correct.
-
- -- LaMont Jones <lamont@canonical.com>  Tue, 30 Nov 2004 21:25:26 -0700
-
-gnupg (1.2.5-3ubuntu1) hoary; urgency=low
-
-  * Resynced to Debian; automatic sync result was a mess, redid from scratch.
-  * Do not install gnupg as suid root since the Ubuntu kernel now supports
-    calling mlock() as user.
-
- -- Martin Pitt <martin.pitt@canonical.com>  Thu, 11 Nov 2004 11:08:42 +0100
 
 gnupg (1.2.5-3) unstable; urgency=low
 

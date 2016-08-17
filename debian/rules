@@ -9,8 +9,6 @@
 # paternity under the Copyright, Designs and Patents Act 1988.)
 # This file may have to be extensively modified
 
-include /usr/share/dpatch/dpatch.make
-
 ################################## variables #################################
 
 #VERSION := $(shell dpkg-parsechangelog | grep ^Version: | cut -d' ' -f2)
@@ -21,8 +19,10 @@ DEB_BUILD_ARCH    := $(shell dpkg-architecture -qDEB_BUILD_ARCH)
 DEB_HOST_ARCH_OS  := $(shell dpkg-architecture -qDEB_HOST_ARCH_OS)
 
 CONFARGS  = --prefix=/usr --libexecdir=/usr/lib/ \
-            --enable-mailto --with-mailprog=/usr/sbin/sendmail \
-            --enable-noexecstack --enable-large-secmem
+            --enable-noexecstack
+
+CONFARGS_FULL    = --enable-mailto --with-mailprog=/usr/sbin/sendmail --enable-large-secmem
+CONFARGS_MINIMAL = --enable-minimal --enable-rsa --disable-nls --disable-regex --disable-gnupg-iconv --disable-gettext --without-iconv --without-readline --without-zlib --enable-sha256
 
 ifneq ($(DEB_BUILD_GNU_TYPE),$(DEB_HOST_GNU_TYPE))
 HOSTARG += --host=$(DEB_HOST_GNU_TYPE)
@@ -33,28 +33,36 @@ CONFARGS += --disable-asm
 endif
 
 LDFLAGS += -Wl,--as-needed
+LDFLAGS += `dpkg-buildflags --get LDFLAGS`
+
+CPPFLAGS_DEF = `dpkg-buildflags --get CPPFLAGS`
+CFLAGS_DEF = `dpkg-buildflags --get CFLAGS`
 
 ################################### configure ################################
 
 build-deb/config.status:
 	dh_testdir
 	(mkdir -p $(@D); cd $(@D); \
-	    ../configure $(CONFARGS) $(HOSTARG) --without-libcurl)
+	    ../configure LDFLAGS="$(LDFLAGS)" CPPFLAGS="$(CPPFLAGS_DEF)" CFLAGS="$(CFLAGS_DEF)" $(CONFARGS) $(CONFARGS_FULL) $(HOSTARG) --without-libcurl)
 
 build-deb-curl/config.status:
 	dh_testdir
 	(mkdir -p $(@D); cd $(@D); \
-	    ../configure $(CONFARGS) $(HOSTARG))
+	    ../configure LDFLAGS="$(LDFLAGS)" CPPFLAGS="$(CPPFLAGS_DEF)" CFLAGS="$(CFLAGS_DEF)" $(CONFARGS) $(CONFARGS_FULL) $(HOSTARG))
 
 build-udeb/config.status:
 	dh_testdir
-	(mkdir -p $(@D); cd $(@D); CFLAGS="-g $(if $(filter powerpc,$(DEB_BUILD_ARCH)),-O2,-Os)" \
-	    ../configure $(CONFARGS) $(HOSTARG) \
-	    --without-bzip2 --without-readline --without-libcurl)
+	(mkdir -p $(@D); cd $(@D); CFLAGS="-g -Os" \
+	    ../configure $(CONFARGS) $(CONFARGS_MINIMAL) $(HOSTARG) )
+
+build-win32/config.status:
+	dh_testdir
+	(mkdir -p $(@D); cd $(@D); CFLAGS="-g -Os" \
+	    ../configure $(CONFARGS) $(CONFARGS_MINIMAL) --host i686-w64-mingw32 )
 
 ##################################### build ##################################
 
-build-deb-stamp: patch-stamp build-deb/config.status
+build-deb-stamp: build-deb/config.status
 	dh_testdir
 	$(MAKE) -C build-deb/
 ifeq (,$(findstring nocheck,$(DEB_BUILD_OPTIONS)))
@@ -62,7 +70,7 @@ ifeq (,$(findstring nocheck,$(DEB_BUILD_OPTIONS)))
 endif
 	touch $@
 
-build-deb-curl-stamp: patch-stamp build-deb-curl/config.status
+build-deb-curl-stamp: build-deb-curl/config.status
 	dh_testdir
 	$(MAKE) -C build-deb-curl/
 ifeq (,$(findstring nocheck,$(DEB_BUILD_OPTIONS)))
@@ -70,21 +78,31 @@ ifeq (,$(findstring nocheck,$(DEB_BUILD_OPTIONS)))
 endif
 	touch $@
 
-build-udeb-stamp: patch-stamp build-udeb/config.status
+build-udeb-stamp: build-udeb/config.status
 	dh_testdir
 	$(MAKE) -C build-udeb/
+ifeq (,$(findstring nocheck,$(DEB_BUILD_OPTIONS)))
+	make -C build-udeb/checks check || exit 1
+endif
 	touch $@
 
-build: build-deb-stamp build-deb-curl-stamp build-udeb-stamp
+build-win32-stamp: build-win32/config.status
+	dh_testdir
+	$(MAKE) -C build-win32/
+	touch $@
+
+build: build-arch
+build-arch: build-deb-stamp build-deb-curl-stamp build-udeb-stamp
+build-indep: build-win32-stamp
 
 ##################################### clean ##################################
 
-clean: unpatch
+clean: 
 	dh_testdir
 	dh_testroot
-	rm -rf build-udeb/ build-deb-curl/ build-deb/
+	rm -rf build-udeb/ build-deb-curl/ build-deb/ build-win32/
 	# find . -name \*~ | xargs rm -vf
-	dh_clean build-deb-stamp build-deb-curl-stamp build-udeb-stamp patch-stamp
+	dh_clean build-deb-stamp build-deb-curl-stamp build-udeb-stamp build-win32-stamp
 
 #################################### install #################################
 
@@ -94,8 +112,6 @@ install: build
 	dh_prep
 	dh_installdirs
 	$(MAKE) -C build-deb install DESTDIR=$(CURDIR)/debian/gnupg
-	: # Move localized manpages to FHS compliant locations
-	mv debian/gnupg/usr/share/man/man1/gpg.ru.1 debian/gnupg/usr/share/man/ru/man1/gpg.1
 	: # Remove from /usr/share/gnupg what we install into /usr/share/doc/gnupg/
 	$(RM) debian/gnupg/usr/share/gnupg/FAQ 
 	$(RM) debian/gnupg/usr/share/info/dir*
@@ -107,18 +123,25 @@ install: build
 
 #################################### binary ##################################
 
-binary-indep: build install
+binary-indep: build-indep
+	dh_testdir -i
+	dh_testroot -i
+	dh_installchangelogs -i NEWS
+	dh_installdocs -i
+	dh_install -i
+	dh_link -i
+	dh_strip -i
+	dh_compress -i
+	dh_fixperms -i
+	dh_installdeb -i
+	dh_gencontrol -i
+	dh_md5sums -i
+	dh_builddeb -i
 
 binary-arch: build install
 	dh_testdir -a
 	dh_testroot -a
-	dh_installchangelogs -a NEWS
-	# Do we want to ship these 100 of kB's changelogs?
-	for i in checks cipher doc g10 include keyserver mpi po tools util; do \
-	    install -m 644 $$i/ChangeLog debian/gnupg/usr/share/doc/gnupg/changelog.$$i; \
-	done
-	install -m 644 ChangeLog debian/gnupg/usr/share/doc/gnupg/changelog.toplevel
-	install -m 644 keyserver/ChangeLog debian/gnupg-curl/usr/share/doc/gnupg-curl/changelog.keyserver
+	dh_installchangelogs -a NEWS ChangeLog
 	dh_installdocs -a
 	dh_installexamples -a
 	dh_movefiles -a -pgpgv --sourcedir=debian/gnupg
@@ -142,6 +165,6 @@ endif
 	dh_md5sums -a
 	dh_builddeb -a
 
-binary: binary-arch
+binary: binary-indep binary-arch
 
-.PHONY: build binary binary-arch clean
+.PHONY: build binary binary-arch binary-indep clean

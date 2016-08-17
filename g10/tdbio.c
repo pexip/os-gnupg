@@ -1,5 +1,5 @@
 /* tdbio.c
- * Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+ * Copyright (C) 1998, 1999, 2000, 2001, 2002, 2012 Free Software Foundation, Inc.
  *
  * This file is part of GnuPG.
  *
@@ -86,7 +86,7 @@ struct cmp_xdir_struct {
 
 
 static char *db_name;
-static DOTLOCK lockhandle;
+static dotlock_t lockhandle;
 static int is_locked;
 static int  db_fd = -1;
 static int in_transaction;
@@ -248,7 +248,7 @@ put_record_into_cache( ulong recno, const char *data )
 	if( !n )
 	    n = 1;
 	if( !is_locked ) {
-	    if( make_dotlock( lockhandle, -1 ) )
+	    if (dotlock_take (lockhandle, -1))
 		log_fatal("can't acquire lock - giving up\n");
 	    else
 		is_locked = 1;
@@ -267,7 +267,7 @@ put_record_into_cache( ulong recno, const char *data )
 	    }
 	}
 	if( !opt.lock_once ) {
-	    if( !release_dotlock( lockhandle ) )
+	    if (!dotlock_release (lockhandle))
 		is_locked = 0;
 	}
 	assert( unused );
@@ -309,7 +309,7 @@ tdbio_sync()
 	return 0;
 
     if( !is_locked ) {
-	if( make_dotlock( lockhandle, -1 ) )
+	if (dotlock_take (lockhandle, -1))
 	    log_fatal("can't acquire lock - giving up\n");
 	else
 	    is_locked = 1;
@@ -324,7 +324,7 @@ tdbio_sync()
     }
     cache_is_dirty = 0;
     if( did_lock && !opt.lock_once ) {
-	if( !release_dotlock( lockhandle ) )
+	if (!dotlock_release (lockhandle))
 	    is_locked = 0;
     }
 
@@ -364,7 +364,7 @@ tdbio_end_transaction()
     if( !in_transaction )
 	log_bug("tdbio: no active transaction\n");
     if( !is_locked ) {
-	if( make_dotlock( lockhandle, -1 ) )
+	if (dotlock_take (lockhandle, -1))
 	    log_fatal("can't acquire lock - giving up\n");
 	else
 	    is_locked = 1;
@@ -374,7 +374,7 @@ tdbio_end_transaction()
     rc = tdbio_sync();
     unblock_all_signals();
     if( !opt.lock_once ) {
-	if( !release_dotlock( lockhandle ) )
+	if (!dotlock_release (lockhandle))
 	    is_locked = 0;
     }
     return rc;
@@ -414,7 +414,7 @@ static void
 cleanup(void)
 {
     if( is_locked ) {
-	if( !release_dotlock(lockhandle) )
+	if (!dotlock_release (lockhandle))
 	    is_locked = 0;
     }
 }
@@ -436,6 +436,7 @@ tdbio_update_version_record (void)
       rec.r.ver.completes   = opt.completes_needed;
       rec.r.ver.cert_depth  = opt.max_cert_depth;
       rec.r.ver.trust_model = opt.trust_model;
+      rec.r.ver.min_cert_level = opt.min_cert_level;
       rc=tdbio_write_record(&rec);
     }
 
@@ -447,7 +448,7 @@ create_version_record (void)
 {
   TRUSTREC rec;
   int rc;
-  
+
   memset( &rec, 0, sizeof rec );
   rec.r.ver.version     = 3;
   rec.r.ver.created     = make_timestamp();
@@ -458,6 +459,7 @@ create_version_record (void)
     rec.r.ver.trust_model = opt.trust_model;
   else
     rec.r.ver.trust_model = TM_PGP;
+  rec.r.ver.min_cert_level = opt.min_cert_level;
   rec.rectype = RECTYPE_VER;
   rec.recnum = 0;
   rc = tdbio_write_record( &rec );
@@ -469,7 +471,7 @@ create_version_record (void)
 
 
 int
-tdbio_set_dbname( const char *new_dbname, int create )
+tdbio_set_dbname( const char *new_dbname, int create, int *r_nofile)
 {
     char *fname;
     static int initialized = 0;
@@ -478,6 +480,8 @@ tdbio_set_dbname( const char *new_dbname, int create )
 	atexit( cleanup );
 	initialized = 1;
     }
+
+    *r_nofile = 0;
 
     if(new_dbname==NULL)
       fname=make_filename(opt.homedir,"trustdb" EXTSEP_S "gpg", NULL);
@@ -497,7 +501,9 @@ tdbio_set_dbname( const char *new_dbname, int create )
 	    xfree(fname);
 	    return G10ERR_TRUSTDB;
 	}
-	if( create ) {
+	if (!create)
+          *r_nofile = 1;
+        else {
 	    FILE *fp;
 	    TRUSTREC rec;
 	    int rc;
@@ -517,10 +523,10 @@ tdbio_set_dbname( const char *new_dbname, int create )
 	    db_name = fname;
 #ifdef __riscos__
 	    if( !lockhandle )
-		lockhandle = create_dotlock( db_name );
+                lockhandle = dotlock_create (db_name, 0);
 	    if( !lockhandle )
 		log_fatal( _("can't create lock for `%s'\n"), db_name );
-            if( make_dotlock( lockhandle, -1 ) )
+            if (dotlock_take (lockhandle, -1))
                 log_fatal( _("can't lock `%s'\n"), db_name );
 #endif /* __riscos__ */
 	    oldmask=umask(077);
@@ -540,7 +546,7 @@ tdbio_set_dbname( const char *new_dbname, int create )
 
 #ifndef __riscos__
 	    if( !lockhandle )
-		lockhandle = create_dotlock( db_name );
+                lockhandle = dotlock_create (db_name, 0);
 	    if( !lockhandle )
 		log_fatal( _("can't create lock for `%s'\n"), db_name );
 #endif /* !__riscos__ */
@@ -583,11 +589,11 @@ open_db()
   assert( db_fd == -1 );
 
   if (!lockhandle )
-    lockhandle = create_dotlock( db_name );
+    lockhandle = dotlock_create (db_name, 0);
   if (!lockhandle )
     log_fatal( _("can't create lock for `%s'\n"), db_name );
 #ifdef __riscos__
-  if (make_dotlock( lockhandle, -1 ) )
+  if (dotlock_take (lockhandle, -1))
     log_fatal( _("can't lock `%s'\n"), db_name );
 #endif /* __riscos__ */
   db_fd = open (db_name, O_RDWR | MY_O_BINARY );
@@ -613,7 +619,7 @@ open_db()
     {
       migrate_from_v2 ();
     }
-  
+
   /* read the version record */
   if (tdbio_read_record (0, &rec, RECTYPE_VER ) )
     log_fatal( _("%s: invalid trustdb\n"), db_name );
@@ -679,7 +685,8 @@ tdbio_db_matches_options()
       yes_no = vr.r.ver.marginals == opt.marginals_needed
 	&& vr.r.ver.completes == opt.completes_needed
 	&& vr.r.ver.cert_depth == opt.max_cert_depth
-	&& vr.r.ver.trust_model == opt.trust_model;
+	&& vr.r.ver.trust_model == opt.trust_model
+	&& vr.r.ver.min_cert_level == opt.min_cert_level;
     }
 
   return yes_no;
@@ -690,7 +697,7 @@ tdbio_read_model(void)
 {
   TRUSTREC vr;
   int rc;
- 
+
   rc = tdbio_read_record( 0, &vr, RECTYPE_VER );
   if( rc )
     log_fatal( _("%s: error reading version record: %s\n"),
@@ -1008,7 +1015,7 @@ drop_from_hashtable( ulong table, byte *key, int keylen, ulong recnum )
  */
 static int
 lookup_hashtable( ulong table, const byte *key, size_t keylen,
-		  int (*cmpfnc)(const void*, const TRUSTREC *), 
+		  int (*cmpfnc)(const void*, const TRUSTREC *),
                   const void *cmpdata, TRUSTREC *rec )
 {
     int rc;
@@ -1109,13 +1116,14 @@ tdbio_dump_record( TRUSTREC *rec, FILE *fp  )
       case 0: fprintf(fp, "blank\n");
 	break;
       case RECTYPE_VER: fprintf(fp,
-	    "version, td=%lu, f=%lu, m/c/d=%d/%d/%d tm=%d nc=%lu (%s)\n",
+	    "version, td=%lu, f=%lu, m/c/d=%d/%d/%d tm=%d mcl=%d nc=%lu (%s)\n",
                                    rec->r.ver.trusthashtbl,
 				   rec->r.ver.firstfree,
 				   rec->r.ver.marginals,
 				   rec->r.ver.completes,
 				   rec->r.ver.cert_depth,
 				   rec->r.ver.trust_model,
+				   rec->r.ver.min_cert_level,
                                    rec->r.ver.nextcheck,
 				   strtimestamp(rec->r.ver.nextcheck)
                                  );
@@ -1209,7 +1217,8 @@ tdbio_read_record( ulong recnum, TRUSTREC *rec, int expected )
 	rec->r.ver.completes = *p++;
 	rec->r.ver.cert_depth = *p++;
 	rec->r.ver.trust_model = *p++;
-	p += 3;
+	rec->r.ver.min_cert_level = *p++;
+	p += 2;
 	rec->r.ver.created  = buftoulong(p); p += 4;
 	rec->r.ver.nextcheck = buftoulong(p); p += 4;
 	p += 4;
@@ -1296,7 +1305,8 @@ tdbio_write_record( TRUSTREC *rec )
 	*p++ = rec->r.ver.completes;
 	*p++ = rec->r.ver.cert_depth;
 	*p++ = rec->r.ver.trust_model;
-	p += 3;
+	*p++ = rec->r.ver.min_cert_level;
+	p += 2;
 	ulongtobuf(p, rec->r.ver.created); p += 4;
 	ulongtobuf(p, rec->r.ver.nextcheck); p += 4;
 	p += 4;
@@ -1534,12 +1544,12 @@ migrate_from_v2 ()
   /* We have some restrictions here.  We can't use the version record
    * and we can't use any of the old hashtables because we dropped the
    * code.  So we first collect all ownertrusts and then use a second
-   * pass fo find the associated keys.  We have to do this all without using 
+   * pass fo find the associated keys.  We have to do this all without using
    * the regular record read functions.
    */
 
   /* get all the ownertrusts */
-  if (lseek (db_fd, 0, SEEK_SET ) == -1 ) 
+  if (lseek (db_fd, 0, SEEK_SET ) == -1 )
       log_fatal ("migrate_from_v2: lseek failed: %s\n", strerror (errno));
   for (recno=0;;recno++)
     {
@@ -1553,7 +1563,7 @@ migrate_from_v2 ()
 
       if (*oldbuf != 2)
         continue;
-      
+
       /* v2 dir record */
       if (ottable_used == ottable_size)
         {
@@ -1570,7 +1580,7 @@ migrate_from_v2 ()
   log_info ("found %d ownertrust records\n", ottable_used);
 
   /* Read again and find the fingerprints */
-  if (lseek (db_fd, 0, SEEK_SET ) == -1 ) 
+  if (lseek (db_fd, 0, SEEK_SET ) == -1 )
       log_fatal ("migrate_from_v2: lseek failed: %s\n", strerror (errno));
   for (recno=0;;recno++)
     {
@@ -1582,7 +1592,7 @@ migrate_from_v2 ()
       if (n != 40)
         log_fatal ("migrate_from_v2: read error or short read\n");
 
-      if (*oldbuf != 3) 
+      if (*oldbuf != 3)
         continue;
 
       /* v2 key record */
@@ -1603,7 +1613,7 @@ migrate_from_v2 ()
   if (create_version_record ())
     log_fatal ("failed to recreate version record of `%s'\n", db_name);
 
-  /* access the hash table, so it is store just after the version record, 
+  /* access the hash table, so it is store just after the version record,
    * this is not needed put a dump is more pretty */
   get_trusthashrec ();
 
@@ -1613,7 +1623,7 @@ migrate_from_v2 ()
     {
       if (!ottable[i].okay)
         continue;
-      
+
       memset (&rec, 0, sizeof rec);
       rec.recnum = tdbio_new_recnum ();
       rec.rectype = RECTYPE_TRUST;

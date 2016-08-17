@@ -49,6 +49,7 @@ typedef struct {
 	 const char *last;
 	 void *aliases;
 	 const void *cur_alias;
+         void *iio_list;
      } internal;	    /* DO NOT CHANGE */
 } ARGPARSE_ARGS;
 
@@ -124,15 +125,7 @@ const char *strusage( int level );
 
 
 /*-- dotlock.c --*/
-struct dotlock_handle;
-typedef struct dotlock_handle *DOTLOCK;
-
-void disable_dotlock(void);
-DOTLOCK create_dotlock( const char *file_to_lock );
-void destroy_dotlock ( DOTLOCK h );
-int make_dotlock( DOTLOCK h, long timeout );
-int release_dotlock( DOTLOCK h );
-void remove_lockfiles (void);
+#include "../include/dotlock.h"
 
 /*-- fileutil.c --*/
 char * make_basename(const char *filepath, const char *inputpath);
@@ -217,16 +210,17 @@ int strncasecmp (const char *, const char *b, size_t n);
 /* The definition of the structure is private, we only need it here,
    so it can be allocated on the stack. */
 struct private_membuf_s {
-  size_t len;      
-  size_t size;     
-  char *buf;       
-  int out_of_core; 
+  size_t len;
+  size_t size;
+  char *buf;
+  int out_of_core;
 };
 
 typedef struct private_membuf_s membuf_t;
 
 void init_membuf (membuf_t *mb, int initiallen);
 void put_membuf  (membuf_t *mb, const void *buf, size_t len);
+void put_membuf_str (membuf_t *mb, const char *buf);
 void *get_membuf (membuf_t *mb, size_t *len);
 
 
