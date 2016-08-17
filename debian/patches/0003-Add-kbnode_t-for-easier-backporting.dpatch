@@ -1,0 +1,18 @@
+#! /bin/sh /usr/share/dpatch/dpatch-run
+# From dcf58b3471b1c9ba87a826aa132033e506664808 Mon Sep 17 00:00:00 2001
+# From: Werner Koch <wk@gnupg.org>
+# Date: Wed, 6 Aug 2014 17:09:15 +0200
+# Subject: [PATCH 1/2] Add kbnode_t for easier backporting.
+
+@DPATCH@
+diff -urNad '--exclude=CVS' '--exclude=.svn' '--exclude=.git' '--exclude=.arch' '--exclude=.hg' '--exclude=_darcs' '--exclude=.bzr' gnupg-1.4.11~/g10/global.h gnupg-1.4.11/g10/global.h
+--- gnupg-1.4.11~/g10/global.h	2008-12-11 11:40:05.000000000 -0500
++++ gnupg-1.4.11/g10/global.h	2015-03-25 13:56:28.385444218 -0400
+@@ -23,6 +23,7 @@
+ #define MAX_FINGERPRINT_LEN 20
+ 
+ typedef struct kbnode_struct *KBNODE;
++typedef struct kbnode_struct *kbnode_t;
+ typedef struct keydb_search_desc KEYDB_SEARCH_DESC;
+ 
+ #endif /*GPG_GLOBAL_H*/
