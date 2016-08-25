@@ -9,7 +9,13 @@ CVE-2013-4402
 CVE-2013-4576
 CVE-2014-4617
 CVE-2014-5270
+0001-Screen-keyserver-responses
+0002-Make-screening-of-keyserver-result-work-with-multi-k
+0003-Add-kbnode_t-for-easier-backporting
+0004-gpg-Fix-regression-due-to-the-keyserver-import-filte
+Add-build-and-runtime-support-for-larger-RSA-key
 CVE-2014-3591
 CVE-2015-0837
 CVE-2015-1606
 CVE-2015-1607
+CVE-2016-6313

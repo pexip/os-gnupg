@@ -1,3 +1,51 @@
+gnupg (1.4.11-3ubuntu2.10pexip1) pexip; urgency=low
+
+  * New upstream release
+
+ -- John-Mark Bell <jmb@pexip.com>  Thu, 25 Aug 2016 23:38:39 +0100
+
+gnupg (1.4.11-3ubuntu2.10) precise-security; urgency=medium
+
+  * SECURITY UPDATE: random number generator prediction
+    - debian/patches/CVE-2016-6313.dpatch: improve readability by using a
+      macro and hash continuous areas in the csprng pool in
+      cipher/random.c.
+    - CVE-2016-6313
+
+ -- Marc Deslauriers <marc.deslauriers@ubuntu.com>  Wed, 17 Aug 2016 13:37:00 -0400
+
+gnupg (1.4.11-3ubuntu2.9) precise-security; urgency=medium
+
+  * Screen responses from keyservers (LP: #1409117)
+    - d/p/0001-Screen-keyserver-responses.dpatch
+    - d/p/0002-Make-screening-of-keyserver-result-work-with-multi-k.dpatch
+    - d/p/0003-Add-kbnode_t-for-easier-backporting.dpatch
+    - d/p/0004-gpg-Fix-regression-due-to-the-keyserver-import-filte.dpatch
+  * Fix large key size regression from CVE-2014-5270 changes (LP: #1371766)
+    - d/p/Add-build-and-runtime-support-for-larger-RSA-key.dpatch
+    - debian/rules: build with --enable-large-secmem
+  * SECURITY UPDATE: sidechannel attack on Elgamal
+    - debian/patches/CVE-2014-3591.dpatch: use ciphertext blinding in
+      cipher/elgamal.c.
+    - CVE-2014-3591
+  * SECURITY UPDATE: sidechannel attack via timing variations in mpi_powm
+    - debian/patches/CVE-2015-0837.dpatch: avoid timing variations in
+      include/mpi.h, mpi/mpi-pow.c, mpi/mpiutil.c.
+    - CVE-2015-0837
+  * SECURITY UPDATE: invalid memory read via invalid keyring
+    - debian/patches/CVE-2015-1606.dpatch: skip all packets not allowed in
+      a keyring in g10/keyring.c.
+    - CVE-2015-1606
+  * SECURITY UPDATE: memcpy with overlapping ranges
+    - debian/patches/CVE-2015-1607.dpatch: use inline functions to convert
+      buffer data to scalars in g10/apdu.c, g10/app-openpgp.c,
+      g10/build-packet.c, g10/ccid-driver.c, g10/getkey.c, g10/keygen.c,
+      g10/keyid.c, g10/misc.c, g10/parse-packet.c, g10/tdbio.c,
+      g10/trustdb.c, include/host2net.h.
+    - CVE-2015-1607
+
+ -- Marc Deslauriers <marc.deslauriers@ubuntu.com>  Fri, 27 Mar 2015 08:24:00 -0400
+
 gnupg (1.4.11-3ubuntu2.7pexip2) pexip; urgency=low
 
   * SECURITY UPDATE: side channel attack on Elgamal decryption
