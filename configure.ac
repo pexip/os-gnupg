@@ -1,19 +1,20 @@
 # configure.ac script for GnuPG
 # Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
-#               2008, 2009 Free Software Foundation, Inc.
+#               2008, 2009, 2010, 2012, 2013 Free Software Foundation, Inc.
+# Copyright (C) 1998, 2013 Werner Koch
 #
 # This file is part of GnuPG.
-# 
+#
 # GnuPG is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # GnuPG is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, see <http://www.gnu.org/licenses/>.
 #
@@ -22,27 +23,37 @@
 AC_PREREQ(2.59)
 min_automake_version="1.9.3"
 
-# Remember to change the version number immediately *after* a release.
-# Set my_issvn to "yes" for non-released code.  Remember to run an
-# "svn up" and "autogen.sh --force" right before creating a distribution.
-m4_define([my_version], [1.4.11])
-m4_define([my_issvn], [no])
-m4_define([svn_revision], m4_esyscmd([printf "%d" $(svn info 2>/dev/null \
-          | sed -n '/^Revision:/ s/[^0-9]//gp'|head -1)]))
-AC_INIT([gnupg], 
-        [my_version[]m4_if(my_issvn,[yes],[-svn[]svn_revision])],
-        [bug-gnupg@gnu.org])
-# Set development_version to yes if the minor number is odd or you
-# feel that the default check for a development version is not
-# sufficient.
-development_version=no
+# To build a release you need to create a tag with the version number
+# (git tag -s gnupg-1.n.m) and run "./autogen.sh --force".  Please
+# bump the version number immediately *after* the release and do
+# another commit and push so that the git magic is able to work.
+m4_define([mym4_version], [1.4.18])
+
+# Below is m4 magic to extract and compute the git revision number,
+# the decimalized short revision number, a beta version string and a
+# flag indicating a development version (mym4_isgit).  Note that the
+# m4 processing is done by autoconf and not during the configure run.
+m4_define([mym4_revision],
+          m4_esyscmd([git rev-parse --short HEAD | tr -d '\n\r']))
+m4_define([mym4_revision_dec],
+          m4_esyscmd_s([echo $((0x$(echo ]mym4_revision[|head -c 4)))]))
+m4_define([mym4_betastring],
+          m4_esyscmd_s([git describe --match 'gnupg-1.[0-9].*[0-9]' --long|\
+                        awk -F- '$3!=0{print"-beta"$3}']))
+m4_define([mym4_isgit],m4_if(mym4_betastring,[],[no],[yes]))
+m4_define([mym4_full_version],[mym4_version[]mym4_betastring])
+
+AC_INIT([gnupg],[mym4_full_version], [http://bugs.gnupg.org])
+
+
+development_version=mym4_isgit
 
 AC_CONFIG_AUX_DIR(scripts)
 AC_CONFIG_SRCDIR(g10/gpg.c)
 AC_CANONICAL_HOST
 AM_INIT_AUTOMAKE([std-options])
 AB_INIT
-AM_CONFIG_HEADER(config.h)
+AC_CONFIG_HEADERS(config.h)
 
 AC_GNU_SOURCE
 
@@ -199,24 +210,6 @@ AC_ARG_ENABLE(idea,
 AC_MSG_RESULT($use_idea)
 if test x"$use_idea" = xyes ; then
    AC_DEFINE(USE_IDEA,1,[Define to include the IDEA cipher])
-
-# We don't need idea but some people claim that they need it for
-# research etc., so we allow to place an idea source code into the
-# cipher directory and statically link it if available, otherwise we
-# link to a stub.  We don't use AC_CHECK_FILE to avoid caching.
-
-   AC_MSG_CHECKING([for idea cipher module])
-   tmp=""
-   if test -f $srcdir/cipher/idea.c; then 
-      IDEA_O=idea.o
-      tmp=idea
-   else
-      IDEA_O=idea-stub.o
-      tmp=no
-      try_extensions=yes
-   fi
-   AC_SUBST(IDEA_O)
-   AC_MSG_RESULT($tmp)
 fi
 
 AC_MSG_CHECKING([whether to enable the CAST5 cipher])
@@ -442,6 +435,13 @@ is intended for making fat binary builds on OS X. */
 # define EXEC_TEMPFILE_ONLY
 #endif
 
+/* A macro to help checking the GCC version.  */
+#ifdef __GNUC__
+# define GNUPG_GCC_VERSION (__GNUC__ * 10000       \
+                            + __GNUC_MINOR__ * 100 \
+                            + __GNUC_PATCHLEVEL__)
+#endif /*__GNUC__*/
+
 /* Please note that the string version must not contain more
    than one character because the using code assumes strlen()==1 */
 #ifdef HAVE_DOSISH_SYSTEM
@@ -465,7 +465,7 @@ is intended for making fat binary builds on OS X. */
 # define GNUPG_TMP_SFX "_tmp"
 #else /*!def __VMS */
 # define GNUPG_BAK_SFX "~"
-# define GNUPG_TMP_SFX EXTSEP_S "tmp" 
+# define GNUPG_TMP_SFX EXTSEP_S "tmp"
 #endif /* def __VMS [else] */
 
 
@@ -483,7 +483,7 @@ is intended for making fat binary builds on OS X. */
 #  define GNUPG_LIBDIR      "/SYS$MANAGER/gnupg_share"
 #  define GNUPG_LIBEXECDIR  ""
 # else
-#  define GNUPG_HOMEDIR "~/.gnupg" 
+#  define GNUPG_HOMEDIR "~/.gnupg"
 # endif
 #endif
 
@@ -539,8 +539,6 @@ AC_ISC_POSIX
 AC_SYS_LARGEFILE
 AC_PROG_INSTALL
 AC_PROG_AWK
-AC_CHECK_PROG(DOCBOOK_TO_MAN, docbook-to-man, yes, no)
-AM_CONDITIONAL(HAVE_DOCBOOK_TO_MAN, test "$ac_cv_prog_DOCBOOK_TO_MAN" = yes)
 GNUPG_CHECK_USTAR
 
 
@@ -583,6 +581,14 @@ case "${host}" in
         agent_support=no
 	use_simple_gettext=yes
 	have_w32_system=yes
+        # gcc 4.6 uses by default -fomit-frame-pointer.  This
+        # conflicts with mingw runtime's setjmp/longjmp usage.  The
+        # actual bug we notice is a segv related to the dlopened
+        # iconv.dll: After returning from set_native_charset the stack
+        # frame is corrupt.
+        if test -n "$GCC" ; then
+            CFLAGS="$CFLAGS -fno-omit-frame-pointer"
+        fi
         ;;
     i?86-emx-os2 | i?86-*-os2*emx )
         # OS/2 with the EMX environment
@@ -631,7 +637,7 @@ esac
 
 if test "$have_dosish_system" = yes; then
    AC_DEFINE(HAVE_DOSISH_SYSTEM,1,
-             [defined if we run on some of the PCDOS like systems 
+             [defined if we run on some of the PCDOS like systems
               (DOS, Windoze. OS/2) with special properties like
               no file modes])
 fi
@@ -710,10 +716,10 @@ if test x"$use_dns_pka" = xyes || test x"$use_dns_srv" = xyes || test x"$use_dns
     # code to use the BIND 8 resolver API.
 
     AC_MSG_CHECKING([whether the resolver is usable])
-    AC_LINK_IFELSE([AC_LANG_PROGRAM([#include <sys/types.h>
+    AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <sys/types.h>
 #include <netinet/in.h>
 #include <arpa/nameser.h>
-#include <resolv.h>],
+#include <resolv.h>]],
 [[unsigned char answer[PACKETSZ]; res_query("foo.bar",C_IN,T_A,answer,PACKETSZ); dn_skipname(0,0); dn_expand(0,0,0,0,0);]])],have_resolver=yes,have_resolver=no)
     AC_MSG_RESULT($have_resolver)
 
@@ -721,12 +727,13 @@ if test x"$use_dns_pka" = xyes || test x"$use_dns_srv" = xyes || test x"$use_dns
     # define in bind 8 for some reason.
 
     if test x"$have_resolver" != xyes ; then
-       AC_MSG_CHECKING([whether I can make the resolver usable with BIND_8_COMPAT])
-       AC_LINK_IFELSE([AC_LANG_PROGRAM([#define BIND_8_COMPAT
+       AC_MSG_CHECKING([whether I can make the resolver usable with BIND_8_COMPAT and libresolv])
+       LIBS="$LIBS -lresolv"
+       AC_LINK_IFELSE([AC_LANG_PROGRAM([[#define BIND_8_COMPAT
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <arpa/nameser.h>
-#include <resolv.h>],
+#include <resolv.h>]],
 [[unsigned char answer[PACKETSZ]; res_query("foo.bar",C_IN,T_A,answer,PACKETSZ); dn_skipname(0,0); dn_expand(0,0,0,0,0);]])],[have_resolver=yes ; need_compat=yes])
        AC_MSG_RESULT($have_resolver)
     fi
@@ -850,8 +857,12 @@ AC_SUBST(MPI_OPT_FLAGS)
 
 dnl Checks for libraries.
 
+
+# This is "GNU gnupg" - The project-id script from gettext
+#                       needs to find this string.  Without
+#                       it "make distcheck" may fail.
 AM_PO_SUBDIRS
-AM_GNU_GETTEXT_VERSION([0.16.1])
+AM_GNU_GETTEXT_VERSION([0.18.1])
 if test "$try_gettext" = yes; then
   AM_GNU_GETTEXT(,[need-ngettext])
   # gettext requires some extra checks.  These really should be part of
@@ -885,7 +896,7 @@ if test "$try_extensions" = yes || test x"$card_support" = xyes ; then
          AC_MSG_NOTICE([dlopen not found.  Disabling extensions.])
 	 try_extensions=no
       fi
-  
+
       if test "$card_support" = yes ; then
          AC_MSG_WARN([dlopen not found.  Disabling OpenPGP card support.])
          card_support=no
@@ -919,10 +930,12 @@ fi
 
 AM_CONDITIONAL(ENABLE_CARD_SUPPORT, test "$card_support" = yes)
 AM_CONDITIONAL(ENABLE_AGENT_SUPPORT, test "$agent_support" = yes)
+AM_CONDITIONAL(ENABLE_SELINUX_HACKS, test "$selinux_support" = yes)
 
 dnl Checks for header files.
 AC_HEADER_STDC
-AC_CHECK_HEADERS([unistd.h langinfo.h termio.h locale.h getopt.h pwd.h])
+AC_CHECK_HEADERS([unistd.h langinfo.h termio.h locale.h getopt.h pwd.h \
+                  signal.h])
 
 # Note that we do not check for iconv here because this is done anyway
 # by the gettext checks and thus it allows us to disable the use of
@@ -956,6 +969,7 @@ AC_CHECK_SIZEOF(unsigned short)
 AC_CHECK_SIZEOF(unsigned int)
 AC_CHECK_SIZEOF(unsigned long)
 AC_CHECK_SIZEOF(unsigned long long)
+AC_HEADER_TIME
 AC_CHECK_SIZEOF(time_t,,[[
 #include <stdio.h>
 #if TIME_WITH_SYS_TIME
@@ -969,12 +983,13 @@ AC_CHECK_SIZEOF(time_t,,[[
 # endif
 #endif
 ]])
+GNUPG_TIME_T_UNSIGNED
 
 # Ensure that we have UINT64_C before we bother to check for uint64_t
 AC_CHECK_HEADERS([inttypes.h])
 AC_CACHE_CHECK([for UINT64_C], [gnupg_cv_uint64_c_works],
-               AC_LINK_IFELSE(AC_LANG_PROGRAM([#include <inttypes.h>],[
-uint64_t foo=UINT64_C(42);]),gnupg_cv_uint64_c_works=yes,gnupg_cv_uint64_c_works=no))
+               AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <inttypes.h>]],[[
+uint64_t foo=UINT64_C(42);]])],gnupg_cv_uint64_c_works=yes,gnupg_cv_uint64_c_works=no))
 
 if test "$gnupg_cv_uint64_c_works" = "yes" ; then
    AC_CHECK_SIZEOF(uint64_t)
@@ -1012,7 +1027,7 @@ AC_CHECK_FUNCS(strcasecmp strncasecmp ctermid times unsetenv getpwnam getpwuid)
 AC_CHECK_FUNCS(memmove gettimeofday getrusage setrlimit clock_gettime)
 AC_CHECK_FUNCS(atexit raise getpagesize strftime nl_langinfo setlocale)
 AC_CHECK_FUNCS(waitpid wait4 sigaction sigprocmask rand pipe stat getaddrinfo)
-AC_CHECK_FUNCS(fcntl ftruncate)
+AC_CHECK_FUNCS(fcntl ftruncate inet_ntop)
 AC_REPLACE_FUNCS(mkdtemp timegm isascii memrchr strsep)
 
 AC_CHECK_TYPES([struct sigaction, sigset_t],,,[#include <signal.h>])
@@ -1025,10 +1040,10 @@ AC_CHECK_FUNC(getopt,,AC_CHECK_LIB(iberty,getopt,AC_SUBST(GETOPT,"-liberty")))
 
 #
 # check for gethrtime and run a testprogram to see whether
-# it is broken.  It has been reported that some Solaris and HP UX systems 
+# it is broken.  It has been reported that some Solaris and HP UX systems
 # raise an SIGILL
 #
-AC_CACHE_CHECK([for gethrtime], 
+AC_CACHE_CHECK([for gethrtime],
                [gnupg_cv_func_gethrtime],
                [AC_TRY_LINK([#include <sys/times.h>],[
                    hrtime_t tv;
@@ -1040,13 +1055,13 @@ AC_CACHE_CHECK([for gethrtime],
 if test $gnupg_cv_func_gethrtime = yes; then
      AC_DEFINE([HAVE_GETHRTIME], 1,
                [Define if you have the `gethrtime(2)' function.])
-     AC_CACHE_CHECK([whether gethrtime is broken], 
+     AC_CACHE_CHECK([whether gethrtime is broken],
                [gnupg_cv_func_broken_gethrtime],
                [AC_TRY_RUN([
                    #include <sys/times.h>
                    int main () {
                    hrtime_t tv;
-                   tv = gethrtime(); 
+                   tv = gethrtime();
                  }
                  ],
                  [gnupg_cv_func_broken_gethrtime=no],
@@ -1058,7 +1073,7 @@ if test $gnupg_cv_func_gethrtime = yes; then
       [Define if `gethrtime(2)' does not work correctly i.e. issues a SIGILL.])
     fi
 fi
-     
+
 
 GNUPG_CHECK_MLOCK
 GNUPG_FUNC_MKDIR_TAKES_ONE_ARG
@@ -1154,7 +1169,7 @@ if test "$use_static_rnd" = default; then
                 ;;
             *)
                 random_modules="rndlinux rndegd rndunix"
-                AC_DEFINE(USE_ALL_RANDOM_MODULES, 1, 
+                AC_DEFINE(USE_ALL_RANDOM_MODULES, 1,
                           [Allow to select random modules at runtime.])
                 ;;
          esac
@@ -1175,23 +1190,23 @@ print_egd_warning=no
 for rndmod in $random_modules "" ; do
   case "$rndmod" in
     rndlinux)
-         AC_DEFINE(USE_RNDLINUX,1, 
+         AC_DEFINE(USE_RNDLINUX,1,
                   [Defined if the /dev/random based RNG should be used.])
          use_rndlinux=yes
          ;;
     rndunix)
-         AC_DEFINE(USE_RNDUNIX,1, 
+         AC_DEFINE(USE_RNDUNIX,1,
                   [Defined if the default Unix RNG should be used.])
          print_egd_warning=yes
          use_rndunix=yes
           ;;
     rndegd)
-         AC_DEFINE(USE_RNDEGD,1, 
+         AC_DEFINE(USE_RNDEGD,1,
                   [Defined if the EGD based RNG should be used.])
          use_rndegd=yes
          ;;
     rndw32)
-         AC_DEFINE(USE_RNDW32,1, 
+         AC_DEFINE(USE_RNDW32,1,
                   [Defined if the Windows specific RNG should be used.])
          use_rndw32=yes
         ;;
@@ -1307,7 +1322,16 @@ fi
 
 AM_CONDITIONAL(ENABLE_LOCAL_ZLIB, test "$use_local_zlib" = yes)
 
-if test "$use_bzip2" = yes ; then
+
+# Under W32 we force the use ofthe included bzip2 code.
+if test x"$have_w32_system" = xyes ; then
+    have_bz2=yes
+    AC_DEFINE(HAVE_BZIP2,1,
+              [Defined if the bz2 compression library is available])
+    AC_CONFIG_LINKS(bzlib.h:bzlib/bzlib.h)
+    ZLIBS="$ZLIBS ../bzlib/libbz2.a"
+else
+ if test "$use_bzip2" = yes ; then
   _cppflags="${CPPFLAGS}"
   _ldflags="${LDFLAGS}"
   AC_ARG_WITH(bzip2,
@@ -1329,12 +1353,12 @@ if test "$use_bzip2" = yes ; then
   	  [
 	  have_bz2=yes
 	  ZLIBS="$ZLIBS -lbz2"
-	  AC_DEFINE(HAVE_BZIP2,1,
-		  [Defined if the bz2 compression library is available])
+	  AC_DEFINE(HAVE_BZIP2,1)
 	  ],
 	  CPPFLAGS=${_cppflags} LDFLAGS=${_ldflags}),
 	  CPPFLAGS=${_cppflags} LDFLAGS=${_ldflags},[#include <stdio.h>])
   fi
+ fi
 fi
 
 AM_CONDITIONAL(ENABLE_BZIP2_SUPPORT,test x"$have_bz2" = "xyes")
@@ -1351,7 +1375,7 @@ GNUPG_CHECK_READLINE
 
 # Allow users to append something to the version string without
 # flagging it as development version.  The user version parts is
-# considered everything after a dash. 
+# considered everything after a dash.
 if test "$development_version" != yes; then
   changequote(,)dnl
   tmp_pat='[a-zA-Z]'
@@ -1369,7 +1393,7 @@ AM_CONDITIONAL(CROSS_COMPILING, test x$cross_compiling = xyes)
 
 
 # add some extra libs here so that previous tests don't fail for
-# mysterious reasons - the final link step should bail out. 
+# mysterious reasons - the final link step should bail out.
 case "${host}" in
     *-mingw32*)
 dnl      NETLIBS="$NETLIBS -lwsock32"
@@ -1408,7 +1432,7 @@ if test "$GCC" = yes; then
     _gcc_cflags_save=$CFLAGS
     CFLAGS="-Wno-pointer-sign"
 
-    AC_COMPILE_IFELSE(AC_LANG_PROGRAM([]),_gcc_psign=yes,_gcc_psign=no)
+    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([])],_gcc_psign=yes,_gcc_psign=no)
     AC_MSG_RESULT($_gcc_psign)
 
     CFLAGS=$_gcc_cflags_save;
@@ -1456,13 +1480,14 @@ doc/Makefile
 tools/Makefile
 tools/gpg-zip
 zlib/Makefile
+bzlib/Makefile
 checks/Makefile
 ])
 AC_OUTPUT
 
 # Give some feedback
 echo
-echo   "                Version info:   $PACKAGE_STRING"             
+echo   "                Version info:   $PACKAGE_STRING"
 echo   "                Configured for: $PRINTABLE_OS_NAME ($host)"
 if test -n "$show_extraasm"; then
   echo "  Extra cpu specific functions:$show_extraasm"

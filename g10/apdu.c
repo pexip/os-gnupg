@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, see <http://www.gnu.org/licenses/>.
  *
- * $Id: apdu.c 5085 2009-07-21 14:30:13Z wk $
+ * $Id$
  */
 
 /* NOTE: This module is also used by other software, thus the use of
@@ -83,6 +83,12 @@
 #define DLSTDCALL
 #endif
 
+#if defined(__APPLE__) || defined(_WIN32) || defined(__CYGWIN__)
+typedef unsigned int pcsc_dword_t;
+#else
+typedef unsigned long pcsc_dword_t;
+#endif
+
 
 /* Helper to pass parameters related to keypad based operations. */
 struct pininfo_s
@@ -116,9 +122,9 @@ struct reader_table_s {
     ccid_driver_t handle;
   } ccid;
   struct {
-    unsigned long context;
-    unsigned long card;
-    unsigned long protocol;
+    long context;
+    long card;
+    pcsc_dword_t protocol;
 #ifdef NEED_PCSC_WRAPPER
     int req_fd;
     int rsp_fd;
@@ -234,60 +240,67 @@ struct pcsc_io_request_s
 
 typedef struct pcsc_io_request_s *pcsc_io_request_t;
 
+#ifdef __APPLE__
+# pragma pack(1)
+#endif
 struct pcsc_readerstate_s
 {
   const char *reader;
   void *user_data;
-  unsigned long current_state;
-  unsigned long event_state;
-  unsigned long atrlen;
+  pcsc_dword_t current_state;
+  pcsc_dword_t event_state;
+  pcsc_dword_t atrlen;
   unsigned char atr[33];
 };
+#ifdef __APPLE__
+# pragma pack()
+#endif
 
 typedef struct pcsc_readerstate_s *pcsc_readerstate_t;
 
-long (* DLSTDCALL pcsc_establish_context) (unsigned long scope,
+long (* DLSTDCALL pcsc_establish_context) (pcsc_dword_t scope,
                                            const void *reserved1,
                                            const void *reserved2,
-                                           unsigned long *r_context);
-long (* DLSTDCALL pcsc_release_context) (unsigned long context);
-long (* DLSTDCALL pcsc_list_readers) (unsigned long context,
+                                           long *r_context);
+long (* DLSTDCALL pcsc_release_context) (long context);
+long (* DLSTDCALL pcsc_list_readers) (long context,
                                       const char *groups,
-                                      char *readers, unsigned long*readerslen);
-long (* DLSTDCALL pcsc_get_status_change) (unsigned long context,
-                                           unsigned long timeout,
+                                      char *readers,
+                                      pcsc_dword_t *readerslen);
+long (* DLSTDCALL pcsc_get_status_change) (long context,
+                                           pcsc_dword_t timeout,
                                            pcsc_readerstate_t readerstates,
-                                           unsigned long nreaderstates);
-long (* DLSTDCALL pcsc_connect) (unsigned long context,
+                                           pcsc_dword_t nreaderstates);
+long (* DLSTDCALL pcsc_connect) (long context,
                                  const char *reader,
-                                 unsigned long share_mode,
-                                 unsigned long preferred_protocols,
-                                 unsigned long *r_card,
-                                 unsigned long *r_active_protocol);
-long (* DLSTDCALL pcsc_reconnect) (unsigned long card,
-                                   unsigned long share_mode,
-                                   unsigned long preferred_protocols,
-                                   unsigned long initialization,
-                                   unsigned long *r_active_protocol);
-long (* DLSTDCALL pcsc_disconnect) (unsigned long card,
-                                    unsigned long disposition);
-long (* DLSTDCALL pcsc_status) (unsigned long card,
-                                char *reader, unsigned long *readerlen,
-                                unsigned long *r_state,
-                                unsigned long *r_protocol,
-                                unsigned char *atr, unsigned long *atrlen);
-long (* DLSTDCALL pcsc_begin_transaction) (unsigned long card);
-long (* DLSTDCALL pcsc_end_transaction) (unsigned long card,
-                                         unsigned long disposition);
-long (* DLSTDCALL pcsc_transmit) (unsigned long card,
+                                 pcsc_dword_t share_mode,
+                                 pcsc_dword_t preferred_protocols,
+                                 long *r_card,
+                                 pcsc_dword_t *r_active_protocol);
+long (* DLSTDCALL pcsc_reconnect) (long card,
+                                   pcsc_dword_t share_mode,
+                                   pcsc_dword_t preferred_protocols,
+                                   pcsc_dword_t initialization,
+                                   pcsc_dword_t *r_active_protocol);
+long (* DLSTDCALL pcsc_disconnect) (long card,
+                                    pcsc_dword_t disposition);
+long (* DLSTDCALL pcsc_status) (long card,
+                                char *reader, pcsc_dword_t *readerlen,
+                                pcsc_dword_t *r_state,
+                                pcsc_dword_t *r_protocol,
+                                unsigned char *atr, pcsc_dword_t *atrlen);
+long (* DLSTDCALL pcsc_begin_transaction) (long card);
+long (* DLSTDCALL pcsc_end_transaction) (long card,
+                                         pcsc_dword_t disposition);
+long (* DLSTDCALL pcsc_transmit) (long card,
                                   const pcsc_io_request_t send_pci,
                                   const unsigned char *send_buffer,
-                                  unsigned long send_len,
+                                  pcsc_dword_t send_len,
                                   pcsc_io_request_t recv_pci,
                                   unsigned char *recv_buffer,
-                                  unsigned long *recv_len);
-long (* DLSTDCALL pcsc_set_timeout) (unsigned long context,
-                                     unsigned long timeout);
+                                  pcsc_dword_t *recv_len);
+long (* DLSTDCALL pcsc_set_timeout) (long context,
+                                     pcsc_dword_t timeout);
 
 
 /*  Prototypes.  */
@@ -343,7 +356,7 @@ new_reader_slot (void)
   reader_table[reader].dump_status_reader = NULL;
   reader_table[reader].set_progress_cb = NULL;
 
-  reader_table[reader].used = 1;  
+  reader_table[reader].used = 1;
   reader_table[reader].any_status = 0;
   reader_table[reader].last_status = 0;
   reader_table[reader].is_t0 = 1;
@@ -394,8 +407,8 @@ host_sw_string (long err)
     case SW_HOST_GENERAL_ERROR: return "general error";
     case SW_HOST_NO_READER: return "no reader";
     case SW_HOST_ABORTED: return "aborted";
-    case SW_HOST_NO_KEYPAD: return "no keypad"; 
-    case SW_HOST_ALREADY_CONNECTED: return "already connected"; 
+    case SW_HOST_NO_KEYPAD: return "no keypad";
+    case SW_HOST_ALREADY_CONNECTED: return "already connected";
     default: return "unknown host status error";
     }
 }
@@ -771,7 +784,7 @@ pcsc_error_to_sw (long ec)
 
     case PCSC_E_INVALID_TARGET:
     case PCSC_E_INVALID_VALUE:
-    case PCSC_E_INVALID_HANDLE: 
+    case PCSC_E_INVALID_HANDLE:
     case PCSC_E_INVALID_PARAMETER:
     case PCSC_E_INSUFFICIENT_BUFFER: rc = SW_HOST_INV_VALUE; break;
 
@@ -985,12 +998,12 @@ pcsc_get_status (int slot, unsigned int *status)
 #ifndef NEED_PCSC_WRAPPER
 static int
 pcsc_send_apdu_direct (int slot, unsigned char *apdu, size_t apdulen,
-                       unsigned char *buffer, size_t *buflen, 
+                       unsigned char *buffer, size_t *buflen,
                        struct pininfo_s *pininfo)
 {
   long err;
   struct pcsc_io_request_s send_pci;
-  unsigned long recv_len;
+  pcsc_dword_t recv_len;
 
   if (!reader_table[slot].atrlen
       && (err = reset_pcsc_reader (slot)))
@@ -1021,7 +1034,7 @@ pcsc_send_apdu_direct (int slot, unsigned char *apdu, size_t apdulen,
 #ifdef NEED_PCSC_WRAPPER
 static int
 pcsc_send_apdu_wrapped (int slot, unsigned char *apdu, size_t apdulen,
-                        unsigned char *buffer, size_t *buflen, 
+                        unsigned char *buffer, size_t *buflen,
                         struct pininfo_s *pininfo)
 {
   long err;
@@ -1140,7 +1153,7 @@ pcsc_send_apdu_wrapped (int slot, unsigned char *apdu, size_t apdulen,
    BUFLEN.  Returns: A status word. */
 static int
 pcsc_send_apdu (int slot, unsigned char *apdu, size_t apdulen,
-                unsigned char *buffer, size_t *buflen, 
+                unsigned char *buffer, size_t *buflen,
                 struct pininfo_s *pininfo)
 {
 #ifdef NEED_PCSC_WRAPPER
@@ -1269,15 +1282,15 @@ connect_pcsc_card (int slot)
   if (err)
     {
       reader_table[slot].pcsc.card = 0;
-      if (err != PCSC_E_NO_SMARTCARD) 
+      if (err != PCSC_E_NO_SMARTCARD)
         log_error ("pcsc_connect failed: %s (0x%lx)\n",
                    pcsc_error_string (err), err);
     }
   else
     {
       char reader[250];
-      unsigned long readerlen, atrlen;
-      unsigned long card_state, card_protocol;
+      pcsc_dword_t readerlen, atrlen;
+      pcsc_dword_t card_state, card_protocol;
 
       atrlen = DIM (reader_table[0].atr);
       readerlen = sizeof reader -1 ;
@@ -1287,7 +1300,8 @@ connect_pcsc_card (int slot)
                          reader_table[slot].atr, &atrlen);
       if (err)
         log_error ("pcsc_status failed: %s (0x%lx) %lu\n",
-                   pcsc_error_string (err), err, readerlen);
+                   pcsc_error_string (err),
+                   (unsigned long)err, (unsigned long)readerlen);
       else
         {
           if (atrlen > DIM (reader_table[0].atr))
@@ -1319,7 +1333,7 @@ disconnect_pcsc_card (int slot)
   assert (slot >= 0 && slot < MAX_READER);
 
   if (!reader_table[slot].pcsc.card)
-    return 0; 
+    return 0;
 
   err = pcsc_disconnect (reader_table[slot].pcsc.card, PCSC_LEAVE_CARD);
   if (err)
@@ -1473,7 +1487,7 @@ open_pcsc_reader_direct (const char *portstr)
   long err;
   int slot;
   char *list = NULL;
-  unsigned long nreader, listlen;
+  pcsc_dword_t nreader;
   char *p;
 
   slot = new_reader_slot ();
@@ -1517,7 +1531,6 @@ open_pcsc_reader_direct (const char *portstr)
       return -1;
     }
 
-  listlen = nreader;
   p = list;
   while (nreader)
     {
@@ -2606,7 +2619,7 @@ apdu_connect (int slot)
     }
   else
     sw = 0;
-  
+
   /* We need to call apdu_get_status_internal, so that the last-status
      machinery gets setup properly even if a card is inserted while
      scdaemon is fired up and apdu_get_status has not yet been called.
@@ -2864,7 +2877,7 @@ send_apdu (int slot, unsigned char *apdu, size_t apdulen,
   if (reader_table[slot].send_apdu_reader)
     return reader_table[slot].send_apdu_reader (slot,
                                                 apdu, apdulen,
-                                                buffer, buflen, 
+                                                buffer, buflen,
                                                 pininfo);
   else
     return SW_HOST_NOT_SUPPORTED;
@@ -2892,7 +2905,7 @@ send_le (int slot, int class, int ins, int p0, int p1,
 {
 #define SHORT_RESULT_BUFFER_SIZE 258
   /* We allocate 8 extra bytes as a safety margin towards a driver bug.  */
-  unsigned char short_result_buffer[SHORT_RESULT_BUFFER_SIZE+10]; 
+  unsigned char short_result_buffer[SHORT_RESULT_BUFFER_SIZE+10];
   unsigned char *result_buffer = NULL;
   size_t result_buffer_size;
   unsigned char *result;
@@ -2930,16 +2943,16 @@ send_le (int slot, int class, int ins, int p0, int p1,
           if (lc > 16384)
             return SW_WRONG_LENGTH;   /* Sanity check.  */
           if ((class&0xf0) != 0)
-            return SW_HOST_INV_VALUE; /* Upper 4 bits need to be 0.  */ 
-          use_chaining = extended_mode == -1? 255 : -extended_mode;  
+            return SW_HOST_INV_VALUE; /* Upper 4 bits need to be 0.  */
+          use_chaining = extended_mode == -1? 255 : -extended_mode;
           use_chaining &= 0xff;
         }
-      else 
+      else
         return SW_HOST_INV_VALUE;
     }
   else if (lc == -1 && extended_mode > 0)
     use_extended_length = 1;
-    
+
   if (le != -1 && (le > (extended_mode > 0? 255:256) || le < 0))
     {
       /* Expected Data does not fit into an APDU.  What we do now
@@ -2952,7 +2965,7 @@ send_le (int slot, int class, int ins, int p0, int p1,
         ; /* We are already using extended length.  */
       else if (extended_mode > 0)
         use_extended_length = 1;
-      else 
+      else
         return SW_HOST_INV_VALUE;
     }
 
@@ -3023,8 +3036,8 @@ send_le (int slot, int class, int ins, int p0, int p1,
             }
           if (le != -1)
             {
-              apdu[apdulen++] = ((le >> 8) & 0xff); 
-              apdu[apdulen++] = (le & 0xff); 
+              apdu[apdulen++] = ((le >> 8) & 0xff);
+              apdu[apdulen++] = (le & 0xff);
             }
         }
       else
@@ -3078,7 +3091,7 @@ send_le (int slot, int class, int ins, int p0, int p1,
           return rc? rc : SW_HOST_INCOMPLETE_CARD_RESPONSE;
         }
       sw = (result[resultlen-2] << 8) | result[resultlen-1];
-      if (!use_extended_length 
+      if (!use_extended_length
           && !did_exact_length_hack && SW_EXACT_LENGTH_P (sw))
         {
           apdu[apdulen-1] = (sw & 0x00ff);
@@ -3094,7 +3107,7 @@ send_le (int slot, int class, int ins, int p0, int p1,
       apdu_buffer = NULL;
       apdu_buffer_size = 0;
     }
-  
+
   /* Store away the returned data but strip the statusword. */
   resultlen -= 2;
   if (DBG_CARD_IO)
@@ -3237,7 +3250,7 @@ send_le (int slot, int class, int ins, int p0, int p1,
    that data will be put into *RETBUFLEN.  The caller is reponsible
    for releasing the buffer even in case of errors.  */
 int
-apdu_send_le(int slot, int extended_mode, 
+apdu_send_le(int slot, int extended_mode,
              int class, int ins, int p0, int p1,
              int lc, const char *data, int le,
              unsigned char **retbuf, size_t *retbuflen)
@@ -3280,7 +3293,7 @@ apdu_send_simple (int slot, int extended_mode,
                   int class, int ins, int p0, int p1,
                   int lc, const char *data)
 {
-  return send_le (slot, class, ins, p0, p1, lc, data, -1, NULL, NULL, NULL, 
+  return send_le (slot, class, ins, p0, p1, lc, data, -1, NULL, NULL, NULL,
                   extended_mode);
 }
 
@@ -3288,7 +3301,7 @@ apdu_send_simple (int slot, int extended_mode,
 /* Same as apdu_send_simple but uses the keypad of the reader. */
 int
 apdu_send_simple_kp (int slot, int class, int ins, int p0, int p1,
-                     int lc, const char *data,  
+                     int lc, const char *data,
                      int pin_mode,
                      int pinlen_min, int pinlen_max, int pin_padlen)
 {
@@ -3320,7 +3333,7 @@ apdu_send_direct (int slot, size_t extended_length,
                   unsigned char **retbuf, size_t *retbuflen)
 {
 #define SHORT_RESULT_BUFFER_SIZE 258
-  unsigned char short_result_buffer[SHORT_RESULT_BUFFER_SIZE+10]; 
+  unsigned char short_result_buffer[SHORT_RESULT_BUFFER_SIZE+10];
   unsigned char *result_buffer = NULL;
   size_t result_buffer_size;
   unsigned char *result;

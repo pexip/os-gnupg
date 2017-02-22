@@ -45,6 +45,33 @@ AC_DEFUN([GNUPG_CHECK_TYPEDEF],
   ])
 
 
+# GNUPG_TIME_T_UNSIGNED
+# Check whether time_t is unsigned
+#
+AC_DEFUN([GNUPG_TIME_T_UNSIGNED],
+  [ AC_CACHE_CHECK(whether time_t is unsigned, gnupg_cv_time_t_unsigned,
+     [AC_REQUIRE([AC_HEADER_TIME])dnl
+      AC_COMPILE_IFELSE([AC_LANG_BOOL_COMPILE_TRY(
+       [AC_INCLUDES_DEFAULT([])
+#if TIME_WITH_SYS_TIME
+# include <sys/time.h>
+# include <time.h>
+#else
+# if HAVE_SYS_TIME_H
+#  include <sys/time.h>
+# else
+#  include <time.h>
+# endif
+#endif
+],
+       [((time_t)-1) < 0])],
+       gnupg_cv_time_t_unsigned=no, gnupg_cv_time_t_unsigned=yes)])
+    if test $gnupg_cv_time_t_unsigned = yes; then
+      AC_DEFINE(HAVE_UNSIGNED_TIME_T,1,[Defined if time_t is an unsigned type])
+    fi
+])# GNUPG_TIME_T_UNSIGNED
+
+
 dnl GNUPG_CHECK_GNUMAKE
 dnl
 AC_DEFUN([GNUPG_CHECK_GNUMAKE],
@@ -665,7 +692,7 @@ AC_CHECK_TOOL(AS, as, false)
 AC_DEFUN([GNUPG_SYS_SYMBOL_UNDERSCORE],
 [tmp_do_check="no"
 case "${host}" in
-    *-mingw32msvc*)
+    *-mingw32*)
         ac_cv_sys_symbol_underscore=yes
         ;;
     i386-emx-os2 | i[3456]86-pc-os2*emx | i386-pc-msdosdjgpp)

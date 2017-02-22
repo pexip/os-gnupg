@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, see <http://www.gnu.org/licenses/>.
  *
- * $Id: iso7816.c 5232 2009-12-15 11:07:43Z wk $
+ * $Id$
  */
 
 #include <config.h>
