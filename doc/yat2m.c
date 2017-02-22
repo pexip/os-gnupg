@@ -1,6 +1,6 @@
 /* yat2m.c - Yet Another Texi 2 Man converter
- *	Copyright (C) 2005 g10 Code GmbH
- *      Copyright (C) 2006 2006 Free Software Foundation, Inc.
+ *	Copyright (C) 2005, 2013 g10 Code GmbH
+ *      Copyright (C) 2006, 2008, 2011 Free Software Foundation, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
  */
 
 /*
-    This is a simple textinfo to man page converter.  It needs some
+    This is a simple texinfo to man page converter.  It needs some
     special markup in th e texinfo and tries best to get a create man
     page.  It has been designed for the GnuPG man pages and thus only
     a few texinfo commands are supported.
@@ -29,11 +29,11 @@
       @end macro
       @macro mansect {a}
       @end macro
-      @macro manpause 
+      @macro manpause
       @end macro
       @macro mancont
       @end macro
-      
+
     They are used by yat2m to select parts of the Texinfo which should
     go into the man page. These macros need to be used without leading
     left space. Processing starts after a "manpage" macro has been
@@ -72,7 +72,21 @@
     extracted from one file, either using the --store or the --select
     option.
 
+    If you want to indent tables in the source use this style:
 
+      @table foo
+        @item
+        @item
+        @table
+          @item
+        @end
+      @end
+
+    Don't change the indentation within a table and keep the same
+    number of white space at the start of the line.  yat2m simply
+    detects the number of white spaces in front of an @item and remove
+    this number of spaces from all following lines until a new @item
+    is found or there are less spaces than for the last @item.
 */
 
 #include <stdio.h>
@@ -87,25 +101,24 @@
 
 
 #define PGM "yat2m"
-#define VERSION "0.5"
+#define VERSION "1.0"
 
 /* The maximum length of a line including the linefeed and one extra
    character. */
 #define LINESIZE 1024
 
+/* Number of allowed condition nestings.  */
+#define MAX_CONDITION_NESTING  10
+
 /* Option flags. */
 static int verbose;
 static int quiet;
 static int debug;
-static const char *opt_source; 
-static const char *opt_release; 
+static const char *opt_source;
+static const char *opt_release;
 static const char *opt_select;
 static const char *opt_include;
 static int opt_store;
-
-/* The only define we understand is -D gpgone.  Thus we need a simple
-   boolean tro track it. */
-static int gpgone_defined;
 
 /* Flag to keep track whether any error occurred.  */
 static int any_error;
@@ -115,13 +128,31 @@ static int any_error;
 struct macro_s
 {
   struct macro_s *next;
-  char *value;  /* Malloced value. */
+  char *value;    /* Malloced value. */
   char name[1];
 };
 typedef struct macro_s *macro_t;
 
 /* List of all defined macros. */
 static macro_t macrolist;
+
+/* List of global macro names.  The value part is not used.  */
+static macro_t predefinedmacrolist;
+
+/* Object to keep track of @isset and @ifclear.  */
+struct condition_s
+{
+  int manverb;   /* "manverb" needs special treatment.  */
+  int isset;     /* This is an @isset condition.  */
+  char name[1];  /* Name of the condition macro.  */
+};
+typedef struct condition_s *condition_t;
+
+/* The stack used to evaluate conditions.  And the current states. */
+static condition_t condition_stack[MAX_CONDITION_NESTING];
+static int condition_stack_idx;
+static int cond_is_active;     /* State of ifset/ifclear */
+static int cond_in_verbatim;   /* State of "manverb".  */
 
 
 /* Object to store one line of content.  */
@@ -148,22 +179,22 @@ struct section_buffer_s
 typedef struct section_buffer_s *section_buffer_t;
 
 /* Variable to keep info about the current page together.  */
-static struct 
+static struct
 {
   /* Filename of the current page or NULL if no page is active.  Malloced. */
   char *name;
 
   /* Number of allocated elements in SECTIONS below.  */
-  size_t n_sections;       
+  size_t n_sections;
   /* Array with the data of the sections.  */
-  section_buffer_t sections; 
+  section_buffer_t sections;
 
 } thepage;
 
 
 /* The list of standard section names.  COMMANDS and ASSUAN are GnuPG
    specific. */
-static const char * const standard_sections[] = 
+static const char * const standard_sections[] =
   { "NAME",  "SYNOPSIS",  "DESCRIPTION",
     "RETURN VALUE", "EXIT STATUS", "ERROR HANDLING", "ERRORS",
     "COMMANDS", "OPTIONS", "USAGE", "EXAMPLES", "FILES",
@@ -286,7 +317,7 @@ isodatestring (void)
   static char buffer[11+5];
   struct tm *tp;
   time_t atime = time (NULL);
-  
+
   if (atime < 0)
     strcpy (buffer, "????" "-??" "-??");
   else
@@ -299,7 +330,158 @@ isodatestring (void)
 }
 
 
+/* Add NAME to the list of predefined macros which are global for all
+   files.  */
+static void
+add_predefined_macro (const char *name)
+{
+  macro_t m;
 
+  for (m=predefinedmacrolist; m; m = m->next)
+    if (!strcmp (m->name, name))
+      break;
+  if (!m)
+    {
+      m = xcalloc (1, sizeof *m + strlen (name));
+      strcpy (m->name, name);
+      m->next = predefinedmacrolist;
+      predefinedmacrolist = m;
+    }
+}
+
+
+/* Create or update a macro with name MACRONAME and set its values TO
+   MACROVALUE.  Note that ownership of the macro value is transferred
+   to this function.  */
+static void
+set_macro (const char *macroname, char *macrovalue)
+{
+  macro_t m;
+
+  for (m=macrolist; m; m = m->next)
+    if (!strcmp (m->name, macroname))
+      break;
+  if (m)
+    free (m->value);
+  else
+    {
+      m = xcalloc (1, sizeof *m + strlen (macroname));
+      strcpy (m->name, macroname);
+      m->next = macrolist;
+      macrolist = m;
+    }
+  m->value = macrovalue;
+  macrovalue = NULL;
+}
+
+
+/* Return true if the macro NAME is set, i.e. not the empty string and
+   not evaluating to 0.  */
+static int
+macro_set_p (const char *name)
+{
+  macro_t m;
+
+  for (m = macrolist; m ; m = m->next)
+    if (!strcmp (m->name, name))
+      break;
+  if (!m || !m->value || !*m->value)
+    return 0;
+  if ((*m->value & 0x80) || !isdigit (*m->value))
+    return 1; /* Not a digit but some other string.  */
+  return !!atoi (m->value);
+}
+
+
+/* Evaluate the current conditions.  */
+static void
+evaluate_conditions (const char *fname, int lnr)
+{
+  int i;
+
+  /* for (i=0; i < condition_stack_idx; i++) */
+  /*   inf ("%s:%d:   stack[%d] %s %s %c", */
+  /*        fname, lnr, i, condition_stack[i]->isset? "set":"clr", */
+  /*        condition_stack[i]->name, */
+  /*        (macro_set_p (condition_stack[i]->name) */
+  /*         ^ !condition_stack[i]->isset)? 't':'f'); */
+
+  cond_is_active = 1;
+  cond_in_verbatim = 0;
+  if (condition_stack_idx)
+    {
+      for (i=0; i < condition_stack_idx; i++)
+        {
+          if (condition_stack[i]->manverb)
+            cond_in_verbatim = (macro_set_p (condition_stack[i]->name)
+                                ^ !condition_stack[i]->isset);
+          else if (!(macro_set_p (condition_stack[i]->name)
+                     ^ !condition_stack[i]->isset))
+            {
+              cond_is_active = 0;
+              break;
+            }
+        }
+    }
+
+  /* inf ("%s:%d:   active=%d verbatim=%d", */
+  /*      fname, lnr, cond_is_active, cond_in_verbatim); */
+}
+
+
+/* Push a condition with condition macro NAME onto the stack.  If
+   ISSET is true, a @isset condition is pushed.  */
+static void
+push_condition (const char *name, int isset, const char *fname, int lnr)
+{
+  condition_t cond;
+  int manverb = 0;
+
+  if (condition_stack_idx >= MAX_CONDITION_NESTING)
+    {
+      err ("%s:%d: condition nested too deep", fname, lnr);
+      return;
+    }
+
+  if (!strcmp (name, "manverb"))
+    {
+      if (!isset)
+        {
+          err ("%s:%d: using \"@ifclear manverb\" is not allowed", fname, lnr);
+          return;
+        }
+      manverb = 1;
+    }
+
+  cond = xcalloc (1, sizeof *cond + strlen (name));
+  cond->manverb = manverb;
+  cond->isset = isset;
+  strcpy (cond->name, name);
+
+  condition_stack[condition_stack_idx++] = cond;
+  evaluate_conditions (fname, lnr);
+}
+
+
+/* Remove the last condition from the stack.  ISSET is used for error
+   reporting.  */
+static void
+pop_condition (int isset, const char *fname, int lnr)
+{
+  if (!condition_stack_idx)
+    {
+      err ("%s:%d: unbalanced \"@end %s\"",
+           fname, lnr, isset?"isset":"isclear");
+      return;
+    }
+  condition_stack_idx--;
+  free (condition_stack[condition_stack_idx]);
+  condition_stack[condition_stack_idx] = NULL;
+  evaluate_conditions (fname, lnr);
+}
+
+
+
 /* Return a section buffer for the section NAME.  Allocate a new buffer
    if this is a new section.  Keep track of the sections in THEPAGE.
    This function may reallocate the section array in THEPAGE.  */
@@ -307,7 +489,7 @@ static section_buffer_t
 get_section_buffer (const char *name)
 {
   int i;
-  section_buffer_t sect; 
+  section_buffer_t sect;
 
   /* If there is no section we put everything into the required NAME
      section.  Given that this is the first one listed it is likely
@@ -400,7 +582,7 @@ static void
 start_page (char *name)
 {
   if (verbose)
-    inf ("starting page `%s'", name);
+    inf ("starting page '%s'", name);
   assert (!thepage.name);
   thepage.name = xstrdup (name);
   thepage.n_sections = 0;
@@ -414,11 +596,13 @@ write_th (FILE *fp)
 {
   char *name, *p;
 
+  fputs (".\\\" Created from Texinfo source by yat2m " VERSION "\n", fp);
+
   name = ascii_strupr (xstrdup (thepage.name));
   p = strrchr (name, '.');
   if (!p || !p[1])
     {
-      err ("no section name in man page `%s'", thepage.name);
+      err ("no section name in man page '%s'", thepage.name);
       free (name);
       return -1;
     }
@@ -449,9 +633,9 @@ proc_texi_cmd (FILE *fp, const char *command, const char *rest, size_t len,
     { "code",    0, "\\fB", "\\fR" },
     { "sc",      0, "\\fB", "\\fR" },
     { "var",     0, "\\fI", "\\fR" },
-    { "samp",    0, "\\(aq", "\\(aq'"  },
-    { "file",    0, "`\\fI","\\fR'" }, 
-    { "env",     0, "`\\fI","\\fR'" }, 
+    { "samp",    0, "\\(aq", "\\(aq"  },
+    { "file",    0, "\\(oq\\fI","\\fR\\(cq" },
+    { "env",     0, "\\(oq\\fI","\\fR\\(cq" },
     { "acronym", 0 },
     { "dfn",     0 },
     { "option",  0, "\\fB", "\\fR"   },
@@ -465,7 +649,7 @@ proc_texi_cmd (FILE *fp, const char *command, const char *rest, size_t len,
     { "uref",    0, "(\\fB", "\\fR)" },
     { "footnote",0, " ([", "])" },
     { "emph",    0, "\\fI", "\\fR" },
-    { "w",       1 },                                 
+    { "w",       1 },
     { "c",       5 },
     { "opindex", 1 },
     { "cpindex", 1 },
@@ -477,8 +661,8 @@ proc_texi_cmd (FILE *fp, const char *command, const char *rest, size_t len,
     { "chapheading", 0},
     { "item",    2, ".TP\n.B " },
     { "itemx",   2, ".TP\n.B " },
-    { "table",   3 }, 
-    { "itemize",   3 }, 
+    { "table",   3 },
+    { "itemize",   3 },
     { "bullet",  0, "* " },
     { "end",     4 },
     { "quotation",1, ".RS\n\\fB" },
@@ -502,7 +686,7 @@ proc_texi_cmd (FILE *fp, const char *command, const char *rest, size_t len,
         {
         case 1: /* Throw away the entire line.  */
           s = memchr (rest, '\n', len);
-          return s? (s-rest)+1 : len;  
+          return s? (s-rest)+1 : len;
         case 2: /* Handle @item.  */
           break;
         case 3: /* Handle table.  */
@@ -510,7 +694,7 @@ proc_texi_cmd (FILE *fp, const char *command, const char *rest, size_t len,
             fputs (".RS\n", fp);
           /* Now throw away the entire line. */
           s = memchr (rest, '\n', len);
-          return s? (s-rest)+1 : len;  
+          return s? (s-rest)+1 : len;
           break;
         case 4: /* Handle end.  */
           for (s=rest, n=len; n && (*s == ' ' || *s == '\t'); s++, n--)
@@ -538,7 +722,7 @@ proc_texi_cmd (FILE *fp, const char *command, const char *rest, size_t len,
             }
           /* Now throw away the entire line. */
           s = memchr (rest, '\n', len);
-          return s? (s-rest)+1 : len;  
+          return s? (s-rest)+1 : len;
         case 5: /* Handle special comments. */
           for (s=rest, n=len; n && (*s == ' ' || *s == '\t'); s++, n--)
             ;
@@ -550,7 +734,7 @@ proc_texi_cmd (FILE *fp, const char *command, const char *rest, size_t len,
             }
           /* Now throw away the entire line. */
           s = memchr (rest, '\n', len);
-          return s? (s-rest)+1 : len;  
+          return s? (s-rest)+1 : len;
         case 6:
           *eol_action = 1;
           break;
@@ -575,7 +759,7 @@ proc_texi_cmd (FILE *fp, const char *command, const char *rest, size_t len,
           ignore_args = 1; /* Parameterized macros are not yet supported. */
         }
       else
-        inf ("texinfo command `%s' not supported (%.*s)", command,
+        inf ("texinfo command '%s' not supported (%.*s)", command,
              ((s = memchr (rest, '\n', len)), (s? (s-rest) : len)), rest);
     }
 
@@ -589,7 +773,7 @@ proc_texi_cmd (FILE *fp, const char *command, const char *rest, size_t len,
           i--;
       if (i)
         {
-          err ("closing brace for command `%s' not found", command);
+          err ("closing brace for command '%s' not found", command);
           return len;
         }
       if (n > 2 && !ignore_args)
@@ -625,17 +809,17 @@ proc_texi_buffer (FILE *fp, const char *line, size_t len,
             {
               switch (*s)
                 {
-                case '@': case '{': case '}': 
-                  putc (*s, fp); in_cmd = 0; 
+                case '@': case '{': case '}':
+                  putc (*s, fp); in_cmd = 0;
                   break;
                 case ':': /* Not ending a sentence flag.  */
                   in_cmd = 0;
                   break;
                 case '.': case '!': case '?': /* Ending a sentence. */
-                  putc (*s, fp); in_cmd = 0; 
+                  putc (*s, fp); in_cmd = 0;
                   break;
                 case ' ': case '\t': case '\n': /* Non collapsing spaces.  */
-                  putc (*s, fp); in_cmd = 0; 
+                  putc (*s, fp); in_cmd = 0;
                   break;
                 default:
                   cmdidx = 0;
@@ -653,7 +837,7 @@ proc_texi_buffer (FILE *fp, const char *line, size_t len,
               s--; len++;
               in_cmd = 0;
             }
-          else if (cmdidx < sizeof cmdbuf -1)  
+          else if (cmdidx < sizeof cmdbuf -1)
             cmdbuf[cmdidx++] = *s;
           else
             {
@@ -732,7 +916,7 @@ write_content (FILE *fp, line_buffer_t lines)
 /*           fputs ("---\n", fp); */
           parse_texi_line (fp, line->line, &table_level);
         }
-    }  
+    }
 }
 
 
@@ -764,13 +948,13 @@ finish_page (void)
     return; /* No page active.  */
 
   if (verbose)
-    inf ("finishing page `%s'", thepage.name);
+    inf ("finishing page '%s'", thepage.name);
 
   if (opt_select)
     {
       if (!strcmp (opt_select, thepage.name))
         {
-          inf ("selected `%s'", thepage.name );
+          inf ("selected '%s'", thepage.name );
           fp = stdout;
         }
       else
@@ -782,10 +966,10 @@ finish_page (void)
     }
   else if (opt_store)
     {
-      inf ("writing `%s'", thepage.name );
+      inf ("writing '%s'", thepage.name );
       fp = fopen ( thepage.name, "w" );
       if (!fp)
-        die ("failed to create `%s': %s\n", thepage.name, strerror (errno));
+        die ("failed to create '%s': %s\n", thepage.name, strerror (errno));
     }
   else
     fp = stdout;
@@ -821,7 +1005,7 @@ finish_page (void)
                   write_content (fp, sect->lines);
                 }
             }
-          
+
         }
     }
 
@@ -846,18 +1030,13 @@ parse_file (const char *fname, FILE *fp, char **section_name, int in_pause)
   int lnr = 0;
   /* Fixme: The following state variables don't carry over to include
      files. */
-  int in_verbatim = 0;
   int skip_to_end = 0;        /* Used to skip over menu entries. */
   int skip_sect_line = 0;     /* Skip after @mansect.  */
-  int ifset_nesting = 0;      /* How often a ifset has been seen. */
-  int ifclear_nesting = 0;    /* How often a ifclear has been seen. */
-  int in_gpgone = 0;          /* Keep track of "@ifset gpgone" parts.  */
-  int not_in_gpgone = 0;      /* Keep track of "@ifclear gpgone" parts.  */
-  int not_in_man = 0;         /* Keep track of "@ifclear isman" parts.  */
+  int item_indent = 0;        /* How far is the current @item indented.  */
 
   /* Helper to define a macro. */
-  char *macroname = NULL;     
-  char *macrovalue = NULL; 
+  char *macroname = NULL;
+  char *macrovalue = NULL;
   size_t macrovaluesize = 0;
   size_t macrovalueused = 0;
 
@@ -866,7 +1045,7 @@ parse_file (const char *fname, FILE *fp, char **section_name, int in_pause)
     {
       size_t n = strlen (line);
       int got_line = 0;
-      char *p;
+      char *p, *pend;
 
       lnr++;
       if (!n || line[n-1] != '\n')
@@ -876,6 +1055,24 @@ parse_file (const char *fname, FILE *fp, char **section_name, int in_pause)
           break;
         }
       line[--n] = 0;
+
+      /* Kludge to allow indentation of tables.  */
+      for (p=line; *p == ' ' || *p == '\t'; p++)
+        ;
+      if (*p)
+        {
+          if (*p == '@' && !strncmp (p+1, "item", 4))
+            item_indent = p - line;  /* Set a new indent level.  */
+          else if (p - line < item_indent)
+            item_indent = 0;         /* Switch off indention.  */
+
+          if (item_indent)
+            {
+              memmove (line, line+item_indent, n - item_indent + 1);
+              n -= item_indent;
+            }
+        }
+
 
       if (*line == '@')
         {
@@ -895,26 +1092,12 @@ parse_file (const char *fname, FILE *fp, char **section_name, int in_pause)
               && !strncmp (p, "macro", 5)
               && (p[5]==' '||p[5]=='\t'||!p[5]))
             {
-              macro_t m;
-
               if (macrovalueused)
                 macrovalue[--macrovalueused] = 0; /* Kill the last LF. */
               macrovalue[macrovalueused] = 0;     /* Terminate macro. */
               macrovalue = xrealloc (macrovalue, macrovalueused+1);
-              
-              for (m= macrolist; m; m = m->next)
-                if (!strcmp (m->name, macroname))
-                  break;
-              if (m)
-                free (m->value);
-              else
-                {
-                  m = xcalloc (1, sizeof *m + strlen (macroname));
-                  strcpy (m->name, macroname);
-                  m->next = macrolist;
-                  macrolist = m;
-                }
-              m->value = macrovalue;
+
+              set_macro (macroname, macrovalue);
               macrovalue = NULL;
               free (macroname);
               macroname = NULL;
@@ -962,23 +1145,33 @@ parse_file (const char *fname, FILE *fp, char **section_name, int in_pause)
           if (n == 6 && !memcmp (line, "@ifset", 6)
                    && (line[6]==' '||line[6]=='\t'))
             {
-              ifset_nesting++;
-
-              if (!strncmp (p, "manverb", 7) && (p[7]==' '||p[7]=='\t'||!p[7]))
+              for (p=line+7; *p == ' ' || *p == '\t'; p++)
+                ;
+              if (!*p)
                 {
-                  if (in_verbatim)
-                    err ("%s:%d: nested \"@ifset manverb\"", fname, lnr);
-                  else
-                    in_verbatim = ifset_nesting;
+                  err ("%s:%d: name missing after \"@ifset\"", fname, lnr);
+                  continue;
                 }
-              else if (!strncmp (p, "gpgone", 6)
-                       && (p[6]==' '||p[6]=='\t'||!p[6]))
+              for (pend=p; *pend && *pend != ' ' && *pend != '\t'; pend++)
+                ;
+              *pend = 0;  /* Ignore rest of the line.  */
+              push_condition (p, 1, fname, lnr);
+              continue;
+            }
+          else if (n == 8 && !memcmp (line, "@ifclear", 8)
+                   && (line[8]==' '||line[8]=='\t'))
+            {
+              for (p=line+9; *p == ' ' || *p == '\t'; p++)
+                ;
+              if (!*p)
                 {
-                  if (in_gpgone)
-                    err ("%s:%d: nested \"@ifset gpgone\"", fname, lnr);
-                  else
-                    in_gpgone = ifset_nesting;
+                  err ("%s:%d: name missing after \"@ifsclear\"", fname, lnr);
+                  continue;
                 }
+              for (pend=p; *pend && *pend != ' ' && *pend != '\t'; pend++)
+                ;
+              *pend = 0;  /* Ignore rest of the line.  */
+              push_condition (p, 0, fname, lnr);
               continue;
             }
           else if (n == 4 && !memcmp (line, "@end", 4)
@@ -986,40 +1179,7 @@ parse_file (const char *fname, FILE *fp, char **section_name, int in_pause)
                    && !strncmp (p, "ifset", 5)
                    && (p[5]==' '||p[5]=='\t'||!p[5]))
             {
-              if (in_verbatim && ifset_nesting == in_verbatim)
-                in_verbatim = 0;
-              if (in_gpgone && ifset_nesting == in_gpgone)
-                in_gpgone = 0;
-
-              if (ifset_nesting)
-                ifset_nesting--;
-              else
-                err ("%s:%d: unbalanced \"@end ifset\"", fname, lnr);
-              continue;
-            }
-          else if (n == 8 && !memcmp (line, "@ifclear", 8)
-                   && (line[8]==' '||line[8]=='\t'))
-            {
-              ifclear_nesting++;
-
-              if (!strncmp (p, "gpgone", 6)
-                  && (p[6]==' '||p[6]=='\t'||!p[6]))
-                {
-                  if (not_in_gpgone)
-                    err ("%s:%d: nested \"@ifclear gpgone\"", fname, lnr);
-                  else
-                    not_in_gpgone = ifclear_nesting;
-                }
-
-              else if (!strncmp (p, "isman", 5)
-                       && (p[5]==' '||p[5]=='\t'||!p[5]))
-                {
-                  if (not_in_man)
-                    err ("%s:%d: nested \"@ifclear isman\"", fname, lnr);
-                  else
-                    not_in_man = ifclear_nesting;
-                }
-
+              pop_condition (1, fname, lnr);
               continue;
             }
           else if (n == 4 && !memcmp (line, "@end", 4)
@@ -1027,23 +1187,13 @@ parse_file (const char *fname, FILE *fp, char **section_name, int in_pause)
                    && !strncmp (p, "ifclear", 7)
                    && (p[7]==' '||p[7]=='\t'||!p[7]))
             {
-              if (not_in_gpgone && ifclear_nesting == not_in_gpgone)
-                not_in_gpgone = 0;
-              if (not_in_man && ifclear_nesting == not_in_man)
-                not_in_man = 0;
-
-              if (ifclear_nesting)
-                ifclear_nesting--;
-              else
-                err ("%s:%d: unbalanced \"@end ifclear\"", fname, lnr);
+              pop_condition (0, fname, lnr);
               continue;
             }
         }
 
       /* Take action on ifset/ifclear.  */
-      if ( (in_gpgone && !gpgone_defined)
-           || (not_in_gpgone && gpgone_defined)
-           || not_in_man)
+      if (!cond_is_active)
         continue;
 
       /* Process commands. */
@@ -1055,7 +1205,7 @@ parse_file (const char *fname, FILE *fp, char **section_name, int in_pause)
             {
               skip_to_end = 0;
             }
-          else if (in_verbatim)
+          else if (cond_in_verbatim)
             {
                 got_line = 1;
             }
@@ -1127,7 +1277,7 @@ parse_file (const char *fname, FILE *fp, char **section_name, int in_pause)
                 }
 
               if (!incfp)
-                err ("can't open include file `%s':%s",
+                err ("can't open include file '%s':%s",
                      incname, strerror (errno));
               else
                 {
@@ -1147,7 +1297,7 @@ parse_file (const char *fname, FILE *fp, char **section_name, int in_pause)
       else if (!skip_to_end)
         got_line = 1;
 
-      if (got_line && in_verbatim)
+      if (got_line && cond_in_verbatim)
         add_content (*section_name, line, 1);
       else if (got_line && thepage.name && *section_name && !in_pause)
         add_content (*section_name, line, 0);
@@ -1166,13 +1316,19 @@ top_parse_file (const char *fname, FILE *fp)
 {
   char *section_name = NULL;  /* Name of the current section or NULL
                                  if not in a section.  */
+  macro_t m;
+
   while (macrolist)
     {
-      macro_t m = macrolist->next;
-      free (m->value);
-      free (m);
-      macrolist = m;
+      macro_t next = macrolist->next;
+      free (macrolist->value);
+      free (macrolist);
+      macrolist = next;
     }
+  for (m=predefinedmacrolist; m; m = m->next)
+    set_macro (m->name, xstrdup ("1"));
+  cond_is_active = 1;
+  cond_in_verbatim = 0;
 
   parse_file (fname, fp, &section_name, 0);
   free (section_name);
@@ -1180,7 +1336,7 @@ top_parse_file (const char *fname, FILE *fp)
 }
 
 
-int 
+int
 main (int argc, char **argv)
 {
   int last_argc = -1;
@@ -1188,6 +1344,12 @@ main (int argc, char **argv)
   opt_source = "GNU";
   opt_release = "";
 
+  /* Define default macros.  The trick is that these macros are not
+     defined when using the actual texinfo renderer. */
+  add_predefined_macro ("isman");
+  add_predefined_macro ("manverb");
+
+  /* Option parsing.  */
   if (argc)
     {
       argc--; argv++;
@@ -1273,7 +1435,7 @@ main (int argc, char **argv)
               opt_select = strrchr (*argv, '/');
               if (opt_select)
                 opt_select++;
-              else 
+              else
                 opt_select = *argv;
               argc--; argv++;
             }
@@ -1292,13 +1454,12 @@ main (int argc, char **argv)
           argc--; argv++;
           if (argc)
             {
-              if (!strcmp (*argv, "gpgone"))
-                gpgone_defined = 1;
+              add_predefined_macro (*argv);
               argc--; argv++;
             }
         }
-    }          
- 
+    }
+
   if (argc > 1)
     die ("usage: " PGM " [OPTION] [FILE] (try --help for more information)\n");
 

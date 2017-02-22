@@ -1,5 +1,5 @@
 /* tdbio.h - Trust database I/O functions
- * Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+ * Copyright (C) 1998, 1999, 2000, 2001, 2002, 2012 Free Software Foundation, Inc.
  *
  * This file is part of GnuPG.
  *
@@ -54,12 +54,10 @@ struct trust_record {
 	    byte  completes;
 	    byte  cert_depth;
 	    byte  trust_model;
+	    byte  min_cert_level;
 	    ulong created;   /* timestamp of trustdb creation  */
 	    ulong nextcheck; /* timestamp of next scheduled check */
-	    ulong reserved;  
-	    ulong reserved2;
 	    ulong firstfree;
-	    ulong reserved3;
             ulong trusthashtbl;
 	} ver;
 	struct {	    /* free record */
@@ -81,7 +79,7 @@ struct trust_record {
       } trust;
       struct {
         byte namehash[20];
-        ulong next;  
+        ulong next;
         byte validity;
 	byte full_count;
 	byte marginal_count;
@@ -92,7 +90,7 @@ typedef struct trust_record TRUSTREC;
 
 /*-- tdbio.c --*/
 int tdbio_update_version_record(void);
-int tdbio_set_dbname( const char *new_dbname, int create );
+int tdbio_set_dbname( const char *new_dbname, int create, int *r_nofile);
 const char *tdbio_get_dbname(void);
 void tdbio_dump_record( TRUSTREC *rec, FILE *fp );
 int tdbio_read_record( ulong recnum, TRUSTREC *rec, int expected );

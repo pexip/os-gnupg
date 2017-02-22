@@ -30,7 +30,8 @@
 
 #define STATUS_BADARMOR  7
 
-#define STATUS_RSA_OR_IDEA 8
+/* Not anymore used: STATUS_RSA_OR_IDEA 8  */
+
 #define STATUS_KEYEXPIRED  9
 #define STATUS_KEYREVOKED  10
 
@@ -119,6 +120,8 @@
 #define STATUS_BEGIN_SIGNING    84
 
 #define STATUS_ERROR  85
+
+#define STATUS_DECRYPTION_INFO  86
 
 
 /*-- status.c --*/
