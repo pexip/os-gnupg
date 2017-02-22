@@ -15,7 +15,7 @@ Build-Depends: debhelper (>> 7), libz-dev, libldap2-dev, libbz2-dev,
 Homepage: http://www.gnupg.org
 Vcs-Browser: http://svn.debian.org/wsvn/pkg-gnupg/gnupg/
 Vcs-Svn: svn://svn.debian.org/svn/pkg-gnupg/gnupg/trunk/
-XS-Pexip-Upstream: http://archive.ubuntu.com/ubuntu/ precise
+XS-Pexip-Upstream: http://ftp.debian.org/debian/ jessie
 
 Package: gnupg
 Architecture: any
