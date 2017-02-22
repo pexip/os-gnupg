@@ -1,6 +1,7 @@
 gnupg (1.4.18-7+deb8u2pexip1) pexip; urgency=low
 
   * Migrate to Jessie
+  * debian/rules: explicit LDFLAGS for udeb
 
  -- John-Mark Bell <jmb@pexip.com>  Wed, 22 Feb 2017 18:11:52 +0000
 
