@@ -52,12 +52,12 @@ build-deb-curl/config.status:
 
 build-udeb/config.status:
 	dh_testdir
-	(mkdir -p $(@D); cd $(@D); CFLAGS="-g -Os" LDFLAGS="" \
+	(mkdir -p $(@D); cd $(@D); CFLAGS="-g -Os" \
 	    ../configure $(CONFARGS) $(CONFARGS_MINIMAL) $(HOSTARG) )
 
 build-win32/config.status:
 	dh_testdir
-	(mkdir -p $(@D); cd $(@D); CFLAGS="-g -Os" LDFLAGS="" \
+	(mkdir -p $(@D); cd $(@D); CFLAGS="-g -Os" \
 	    ../configure $(CONFARGS) $(CONFARGS_MINIMAL) --host i686-w64-mingw32 )
 
 ##################################### build ##################################
