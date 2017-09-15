@@ -1,3 +1,15 @@
+gnupg (1.4.18-7+deb8u4pexip1) pexip; urgency=low
+
+  * New upstream release
+
+ -- John-Mark Bell <jmb@pexip.com>  Fri, 15 Sep 2017 12:29:24 +0100
+
+gnupg (1.4.18-7+deb8u4) jessie-security; urgency=high
+
+  * Backport fixes for CVE-2017-7526 from STABLE-BRANCH-1-4 branch
+
+ -- Guido Günther <agx@sigxcpu.org>  Wed, 30 Aug 2017 08:08:14 +0200
+
 gnupg (1.4.18-7+deb8u3pexip1) pexip; urgency=low
 
   * New upstream release
